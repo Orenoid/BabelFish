@@ -12,12 +12,12 @@ export function Chat({ className = "" }: {
 }) {
     const defaultMessageList: Message[] = [
         { role: "system", content: "You're a helpful assistant." },
-        { role: "user", content: "Hello, how are you?" },
-        { role: "assistant", content: "I'm fine, thank you!" },
-        { role: "user", content: "What's your name?" },
-        { role: "assistant", content: "I'm BabelFish." },
-        { role: "user", content: "What's your favorite color?" },
-        { role: "assistant", content: "I'm blue." },
+        // { role: "user", content: "Hello, how are you?" },
+        // { role: "assistant", content: "I'm fine, thank you!" },
+        // { role: "user", content: "What's your name?" },
+        // { role: "assistant", content: "I'm BabelFish." },
+        // { role: "user", content: "What's your favorite color?" },
+        // { role: "assistant", content: "I'm blue." },
         // { role: "user", content: "What's your favorite food?" },
         // { role: "assistant", content: "I'm pizza." },
         // { role: "user", content: "What's your favorite drink?" },
@@ -55,7 +55,7 @@ export function Chat({ className = "" }: {
         {/* <MessageList className="flex-grow overflow-y-auto" messageList={messageList} /> */}
         <MessageList className="flex-1 overflow-y-auto" messageList={messageList} />
         {/* <MessageInput className="bottom-0" addMesssage={addMesssage} /> */}
-        <MessageInput className="" addMesssage={addMesssage} />
+        <MessageInput className="" addMesssage={addMesssage} messageList={messageList} />
     </div>
 }
 
@@ -119,7 +119,8 @@ export function MessageContent({ content, className = "" }: MessageContentProps)
 }
 
 
-export function MessageInput({ addMesssage, className = "" }: {
+export function MessageInput({ messageList, addMesssage, className = "" }: {
+    messageList: Message[],
     addMesssage: (message: { content: string, role?: string }) => void,
     className?: string;
 }) {
@@ -129,6 +130,51 @@ export function MessageInput({ addMesssage, className = "" }: {
         if (messageContent.trim() === "") return;
         addMesssage({ content: messageContent });
         setMessageContent("");
+    }
+
+    function translateInput() {
+        const historyContext = messageList.map(message => message.content).join('\n');
+        const translatePrompt = `This is an ongoing conversation:
+        """
+        ${historyContext}
+        """
+        This is the message the user is about to send:
+        """
+        ${messageContent}
+        """
+        Please translate this message into English, considering the context of the conversation, and return it in JSON format:
+        {
+            "translated": "..."
+        }`
+        const translateMessage = async () => {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': "Bearer " + process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+                },
+                body: JSON.stringify({
+                    model: 'gpt-4o-mini', // or the model you are using
+                    messages: [{ role: 'user', content: translatePrompt }],
+                    temperature: 0.7,
+                    response_format: { type: 'json_object' },
+                }),
+            });
+
+            if (!response.ok) {
+                console.error('Error translating message:', response.statusText);
+                return;
+            }
+
+            const data = await response.json();
+            const translatedTextInJson = data.choices[0].message.content; // Assuming the translated text is in the first choice
+            const translatedText = JSON.parse(translatedTextInJson).translated;
+            console.log('Translated message:', translatedText);
+            setMessageContent(translatedText);
+        };
+
+        translateMessage();
+
     }
 
     return <div className={`flex flex-row border-t pt-2 ${className}`}>
@@ -142,6 +188,9 @@ export function MessageInput({ addMesssage, className = "" }: {
                     handleSend();
                 }
             }} rows={4} />
-        <button onClick={handleSend}>Send</button>
+        <div className="flex flex-col justify-around">
+            <button onClick={handleSend}>Send</button>
+            <button onClick={translateInput}>Translate</button>
+        </div>
     </div>
 }
