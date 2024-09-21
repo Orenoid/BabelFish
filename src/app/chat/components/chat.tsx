@@ -7,11 +7,27 @@ interface Message {
     content: string;
 }
 
-export function Chat({ }: {
+export function Chat({ className = "" }: {
     className?: string;
 }) {
     const defaultMessageList: Message[] = [
         { role: "system", content: "You're a helpful assistant." },
+        { role: "user", content: "Hello, how are you?" },
+        { role: "assistant", content: "I'm fine, thank you!" },
+        { role: "user", content: "What's your name?" },
+        { role: "assistant", content: "I'm BabelFish." },
+        { role: "user", content: "What's your favorite color?" },
+        { role: "assistant", content: "I'm blue." },
+        // { role: "user", content: "What's your favorite food?" },
+        // { role: "assistant", content: "I'm pizza." },
+        // { role: "user", content: "What's your favorite drink?" },
+        // { role: "assistant", content: "I'm coffee." },
+        // { role: "user", content: "What's your favorite movie?" },
+        // { role: "assistant", content: "I'm The Matrix." },
+        // { role: "user", content: "What's your favorite book?" },
+        // { role: "assistant", content: "I'm The Bible." },
+        // { role: "user", content: "What's your favorite game?" },
+        // { role: "assistant", content: "I'm The Matrix." },
     ];
     const [messageList, setMessageList] = useState<Message[]>(defaultMessageList);
 
@@ -35,9 +51,11 @@ export function Chat({ }: {
         setMessageList(prev => [...prev, { role: "assistant", content: data.choices[0].message.content }]);
     }
 
-    return <div className="w-1/2">
-        <MessageList className="mb-10" messageList={messageList} />
-        <MessageInput addMesssage={addMesssage} />
+    return <div className={`w-1/2 flex flex-col ${className}`}>
+        {/* <MessageList className="flex-grow overflow-y-auto" messageList={messageList} /> */}
+        <MessageList className="flex-1 overflow-y-auto" messageList={messageList} />
+        {/* <MessageInput className="bottom-0" addMesssage={addMesssage} /> */}
+        <MessageInput className="" addMesssage={addMesssage} />
     </div>
 }
 
@@ -94,7 +112,7 @@ export interface MessageContentProps {
 export function MessageContent({ content, className = "" }: MessageContentProps) {
     console.log(content);
     return (
-        <div className={`bg-gray-200 rounded-lg w-fit max-w-[80%] p-2 ${className}`}>
+        <div className={`bg-[#F6F5F5] rounded-lg w-fit max-w-[80%] p-2 ${className}`}>
             <div dangerouslySetInnerHTML={{ __html: content.replace(/\n/g, '<br />') }} />
         </div>
     );
@@ -108,11 +126,12 @@ export function MessageInput({ addMesssage, className = "" }: {
     const [messageContent, setMessageContent] = useState("");
 
     function handleSend() {
+        if (messageContent.trim() === "") return;
         addMesssage({ content: messageContent });
         setMessageContent("");
     }
 
-    return <div className={`flex flex-row ${className}`}>
+    return <div className={`flex flex-row border-t pt-2 ${className}`}>
         <textarea
             className="flex-1"
             placeholder="Type the message content here..."
