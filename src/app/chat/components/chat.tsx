@@ -33,7 +33,12 @@ export function Chat({ className = "" }: {
 
     async function addMesssage({ content, role = "user" }: { content: string, role?: string }) {
         setMessageList(prev => [...prev, { role, content }]);
-        const response = await fetch("https://chat.orenoid.com/v1/chat/completions", {
+        const url = process.env.NEXT_PUBLIC_OPENAI_CHAT_COMPLETION_URL;
+        if (!url) {
+            console.error('API URL is not defined');
+            return;
+        }
+        const response = await fetch(url, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -47,7 +52,6 @@ export function Chat({ className = "" }: {
             }),
         });
         const data = await response.json();
-        console.log(data);
         setMessageList(prev => [...prev, { role: "assistant", content: data.choices[0].message.content }]);
     }
 
@@ -110,7 +114,6 @@ export interface MessageContentProps {
 }
 
 export function MessageContent({ content, className = "" }: MessageContentProps) {
-    console.log(content);
     return (
         <div className={`bg-[#F6F5F5] rounded-lg w-fit max-w-[80%] p-2 ${className}`}>
             <div dangerouslySetInnerHTML={{ __html: content.replace(/\n/g, '<br />') }} />
@@ -147,7 +150,12 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
             "translated": "..."
         }`
         const translateMessage = async () => {
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            const url = process.env.NEXT_PUBLIC_OPENAI_CHAT_COMPLETION_URL;
+            if (!url) {
+                console.error('API URL is not defined');
+                return;
+            }
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -169,7 +177,6 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
             const data = await response.json();
             const translatedTextInJson = data.choices[0].message.content; // Assuming the translated text is in the first choice
             const translatedText = JSON.parse(translatedTextInJson).translated;
-            console.log('Translated message:', translatedText);
             setMessageContent(translatedText);
         };
 
