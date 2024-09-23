@@ -1,15 +1,19 @@
 "use client";
 
-import { Dispatch, SetStateAction, useState } from "react";
-import { AddMesssageInChat, type Message } from "../lib/chat"; // Changed to type-only import
+import { useEffect, useState } from "react";
+import { AddMesssageInChat, ChatLoader, type Message } from "../lib/chat"; // Changed to type-only import
 
-export function Chat({ chatID, messageList, setMessageList, className = "" }: {
+export function Chat({ chatID, loadChatByID, className = "" }: {
     chatID: string,
-    messageList: Message[]
-    setMessageList: Dispatch<SetStateAction<Message[]>>
+    loadChatByID: ChatLoader
     className?: string;
 }) {
-    // const [messageList, setMessageList] = useState<Message[]>(messageList);
+    const [messageList, setMessageList] = useState<Message[]>([]);
+
+    useEffect(() => {
+        const messageList = loadChatByID(chatID)
+        setMessageList(messageList)
+    }, [chatID, loadChatByID])
 
     async function addMesssage({ content, role = "user" }: { content: string, role?: string }) {
         setMessageList(prev => [...prev, { role, content }]);

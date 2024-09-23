@@ -10,19 +10,19 @@ interface ChatSelectionListProps {
     className?: string;
 }
 
-export function ChatSelectionList({chatSelectionListLoader, className = "" }: ChatSelectionListProps) {
+export function ChatSelectionList({ chatSelectionListLoader, className = "" }: ChatSelectionListProps) {
 
     const chatSelectionList = useAppSelector((state) => state.chatSelectionList)
     const dispatch = useAppDispatch()
 
 
-    useEffect(()=>{
+    useEffect(() => {
         const chatSelectionList2 = chatSelectionListLoader()
         dispatch(setChatSelectionList(chatSelectionList2.chatSelectionList))
         let chatIDToSelect: string | undefined
-        if (chatSelectionList2.currentSelectedChatID === undefined && 
+        if (chatSelectionList2.currentSelectedChatID === undefined &&
             chatSelectionList2.chatSelectionList.length > 0) {
-                chatIDToSelect = chatSelectionList2.chatSelectionList[0].id
+            chatIDToSelect = chatSelectionList2.chatSelectionList[0].id
         } else if (chatSelectionList2.currentSelectedChatID) {
             chatIDToSelect = chatSelectionList2.currentSelectedChatID
         }
@@ -31,33 +31,33 @@ export function ChatSelectionList({chatSelectionListLoader, className = "" }: Ch
         }
     }, [chatSelectionListLoader, dispatch])
 
-return <div className={className}>
-        {chatSelectionList.selectionList.map((item)=>{
-            return <ChatSelection id={item.id} key={item.id} title={item.title}/>
+    return <div className={`${className}`}>
+        {chatSelectionList.selectionList.map((item) => {
+            return <ChatSelection className={item.id === chatSelectionList.currentChatID? "bg-gray-200":""}
+             id={item.id} key={item.id} title={item.title} />
         })}
     </div>
 
 }
 
-export function NewChat({addNewChat2,  className = "" }: { addNewChat2: AddNewChat, className?: string }) {
+export function NewChat({ addNewChat2, className = "" }: { addNewChat2: AddNewChat, className?: string }) {
     const dispatch = useAppDispatch()
     const handleClick = () => {
-        const chatSelection = addNewChat2("New Title", [{"role": "system", "content": "You're a helpful assistant."}])
+        const chatSelection = addNewChat2("New Chat", [{ "role": "system", "content": "You're a helpful assistant." }])
         dispatch(addNewChat(chatSelection.chatSelection))
     }
 
-    return <div className={className}>
+    return <div className={`pl-4 ${className}`}>
         <button onClick={handleClick}>New Chat</button>
     </div>
 }
 
-export function ChatSelection({id, title, className = ""}: {id: string, title: string, className?: string}){
-    // const tmp = useAppSelector((state) => state.chatSelectionList)
+export function ChatSelection({ id, title, className = "" }: { id: string, title: string, className?: string }) {
     const dispatch = useAppDispatch()
     const handleClick = () => {
         dispatch(setCurrentChatID(id))
     }
-    return <div className={className} onClick={handleClick}>
+    return <div className={`pl-4 py-2 my-1 cursor-pointer rounded-md hover:bg-gray-200 ${className}`} onClick={handleClick}>
         <span>{title}</span>
     </div>
 }
