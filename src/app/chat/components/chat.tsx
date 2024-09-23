@@ -1,38 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { Dispatch, SetStateAction, useState } from "react";
+import { AddMesssageInChat, type Message } from "../lib/chat"; // Changed to type-only import
 
-interface Message {
-    role: string;
-    content: string;
-}
-
-export function Chat({ className = "" }: {
+export function Chat({ chatID, messageList, setMessageList, className = "" }: {
+    chatID: string,
+    messageList: Message[]
+    setMessageList: Dispatch<SetStateAction<Message[]>>
     className?: string;
 }) {
-    const defaultMessageList: Message[] = [
-        { role: "system", content: "You're a helpful assistant." },
-        // { role: "user", content: "Hello, how are you?" },
-        // { role: "assistant", content: "I'm fine, thank you!" },
-        // { role: "user", content: "What's your name?" },
-        // { role: "assistant", content: "I'm BabelFish." },
-        // { role: "user", content: "What's your favorite color?" },
-        // { role: "assistant", content: "I'm blue." },
-        // { role: "user", content: "What's your favorite food?" },
-        // { role: "assistant", content: "I'm pizza." },
-        // { role: "user", content: "What's your favorite drink?" },
-        // { role: "assistant", content: "I'm coffee." },
-        // { role: "user", content: "What's your favorite movie?" },
-        // { role: "assistant", content: "I'm The Matrix." },
-        // { role: "user", content: "What's your favorite book?" },
-        // { role: "assistant", content: "I'm The Bible." },
-        // { role: "user", content: "What's your favorite game?" },
-        // { role: "assistant", content: "I'm The Matrix." },
-    ];
-    const [messageList, setMessageList] = useState<Message[]>(defaultMessageList);
+    // const [messageList, setMessageList] = useState<Message[]>(messageList);
 
     async function addMesssage({ content, role = "user" }: { content: string, role?: string }) {
         setMessageList(prev => [...prev, { role, content }]);
+        AddMesssageInChat(chatID, {role, content})
         const url = process.env.NEXT_PUBLIC_OPENAI_CHAT_COMPLETION_URL;
         if (!url) {
             console.error('API URL is not defined');
@@ -52,14 +33,16 @@ export function Chat({ className = "" }: {
             }),
         });
         const data = await response.json();
+        // TODO
+        AddMesssageInChat(chatID, { role: "assistant", content: data.choices[0].message.content })
         setMessageList(prev => [...prev, { role: "assistant", content: data.choices[0].message.content }]);
     }
 
-    return <div className={`w-1/2 flex flex-col ${className}`}>
+    return <div className={`flex flex-col items-center ${className}`}>
         {/* <MessageList className="flex-grow overflow-y-auto" messageList={messageList} /> */}
-        <MessageList className="flex-1 overflow-y-auto" messageList={messageList} />
+        <MessageList className="flex-1 overflow-y-auto w-4/5" messageList={messageList} />
         {/* <MessageInput className="bottom-0" addMesssage={addMesssage} /> */}
-        <MessageInput className="" addMesssage={addMesssage} messageList={messageList} />
+        <MessageInput className="w-4/5 px-5 pt-5" addMesssage={addMesssage} messageList={messageList} />
     </div>
 }
 
@@ -184,9 +167,9 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
 
     }
 
-    return <div className={`flex flex-row border-t pt-2 ${className}`}>
+    return <div className={`flex flex-row border-t pt-2 pb-2 ${className}`}>
         <textarea
-            className="flex-1"
+            className="flex-1 mr-4"
             placeholder="Type the message content here..."
             value={messageContent} onChange={(e) => setMessageContent(e.target.value)}
             onKeyDown={(e) => {
