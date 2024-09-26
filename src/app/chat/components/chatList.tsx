@@ -33,31 +33,32 @@ export function ChatSelectionList({ chatSelectionListLoader, className = "" }: C
 
     return <div className={`${className}`}>
         {chatSelectionList.selectionList.map((item) => {
-            return <ChatSelection className={item.id === chatSelectionList.currentChatID? "bg-gray-200":""}
-             id={item.id} key={item.id} title={item.title} />
+            return <ChatSelection selected={item.id === chatSelectionList.currentChatID}
+                id={item.id} key={item.id} title={item.title} />
         })}
     </div>
 
 }
 
-export function NewChat({ addNewChat2, className = "" }: { addNewChat2: AddNewChat, className?: string }) {
+export function NewChat({ addNewChat2, className = "" }: { 
+    addNewChat2: AddNewChat, className?: string }) {
     const dispatch = useAppDispatch()
     const handleClick = () => {
         const chatSelection = addNewChat2("New Chat", [{ "role": "system", "content": "You're a helpful assistant." }])
         dispatch(addNewChat(chatSelection.chatSelection))
     }
 
-    return <div className={`pl-4 ${className}`}>
+    return <div className={`py-2 my-1 cursor-pointer rounded-md hover:bg-gray-200 ${className}`}>
         <button onClick={handleClick}>New Chat</button>
     </div>
 }
 
-export function ChatSelection({ id, title, className = "" }: { id: string, title: string, className?: string }) {
+export function ChatSelection({ id, title, className = "", selected = false }: { id: string, title: string, className?: string, selected?: boolean }) {
     const dispatch = useAppDispatch()
     const handleClick = () => {
         dispatch(setCurrentChatID(id))
     }
-    return <div className={`pl-4 py-2 my-1 cursor-pointer rounded-md hover:bg-gray-200 ${className}`} onClick={handleClick}>
+    return <div className={`pl-4 py-2 my-1 cursor-pointer rounded-md hover:bg-gray-200 ${className} ${selected ? "bg-gray-200" : ""}`} onClick={handleClick}>
         <span>{title}</span>
     </div>
 }
