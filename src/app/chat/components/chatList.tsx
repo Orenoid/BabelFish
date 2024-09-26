@@ -51,8 +51,9 @@ export function NewChat({ addNewChat2, className = "" }: {
         dispatch(addNewChat(chatSelection.chatSelection))
     }
 
-    return <div className={`py-2 pl-2 my-1 cursor-pointer rounded-md hover:bg-gray-200 ${className}`}>
-        <button onClick={handleClick}>New Chat</button>
+    return <div className={`py-2 pl-2 my-1 cursor-pointer rounded-md hover:bg-gray-200 ${className}`}
+        onClick={handleClick}>
+        <button>New Chat</button>
     </div>
 }
 
