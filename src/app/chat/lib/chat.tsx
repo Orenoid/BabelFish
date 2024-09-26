@@ -19,62 +19,6 @@ export function LoadChatSelectionListFromLocalStorage(): {
     };
 }
 
-// export function LoadChatSelectionListFromLocalStorage(): {
-//     chatSelectionList: ChatSelection[], currentSelectedChatID?: string
-// } {
-//     // TODO load chat selection list from LocalStorage
-//     return {
-//         chatSelectionList: [
-//             {
-//                 "id": "1",
-//                 "title": "Whatever"
-//             },
-//             {
-//                 "id": "2",
-//                 "title": "Whatever 2",
-//             }
-//         ],
-//         currentSelectedChatID: "1"
-//     }
-// }
-
-// export function LoadChatByIDFromLocalStorage(chatID: string): Message[] {
-//     let messageList: Message[]
-//     switch (chatID) {
-//         case "1":
-//             messageList = [
-//                 { role: "system", content: "You're a helpful assistant1." },
-//                 { role: "user", content: "Hello, how are you?" },
-//                 { role: "assistant", content: "I'm fine, thank you!" },
-//                 { role: "user", content: "What's your name?" },
-//                 { role: "assistant", content: "I'm BabelFish." },
-//                 { role: "user", content: "What's your favorite color?" },
-//                 { role: "assistant", content: "I'm blue." },
-//                 { role: "user", content: "What's your favorite food?" },
-//                 { role: "assistant", content: "I'm pizza." },
-//                 { role: "user", content: "What's your favorite drink?" },
-//                 { role: "assistant", content: "I'm coffee." },
-//                 { role: "user", content: "What's your favorite movie?" },
-//                 { role: "assistant", content: "I'm The Matrix." },
-//                 { role: "user", content: "What's your favorite book?" },
-//                 { role: "assistant", content: "I'm The Bible." },
-//                 { role: "user", content: "What's your favorite game?" },
-//                 { role: "assistant", content: "I'm The Matrix." },
-//             ]
-//             break;
-//         case "2":
-//             messageList = [
-//                 { role: "system", content: "You're a helpful assistant2." },
-//                 { role: "user", content: "Hello, how are you?" },
-//                 { role: "assistant", content: "I'm fine, thank you!" },
-//             ]
-//             break;
-//         default:
-//             messageList = []
-//     }
-//     return messageList
-// }
-
 export function LoadChatByIDFromLocalStorage(chatID: string): Message[] {
     // 从 localStorage 根据 chatID 读取消息列表
     const messageListJSON = localStorage.getItem(`chat_${chatID}`);
@@ -129,6 +73,20 @@ export function AddMesssageInChat(chatID: string, message: Message): void {
     localStorage.setItem(`chat_${chatID}`, JSON.stringify(messageList));
 }
 
+export function UpdateChatTitle(chatID: string, newTitle: string): void {
+    // 从 localStorage 读取现有的 chat selection list
+    const chatSelectionListJSON = localStorage.getItem('chatSelectionList');
+    const chatSelectionList: ChatSelection[] = chatSelectionListJSON ? JSON.parse(chatSelectionListJSON) : [];
+
+    // 更新 chat selection list 中的 title
+    const chatSelection = chatSelectionList.find(chat => chat.id === chatID);
+    if (chatSelection) {
+        chatSelection.title = newTitle;
+    }
+
+    // 更新 localStorage 中的 chat selection list
+    localStorage.setItem('chatSelectionList', JSON.stringify(chatSelectionList));
+}
 
 
 export interface ChatSelectionListLoader {
