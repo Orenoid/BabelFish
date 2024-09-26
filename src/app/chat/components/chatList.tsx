@@ -51,7 +51,7 @@ export function NewChat({ addNewChat2, className = "" }: {
         dispatch(addNewChat(chatSelection.chatSelection))
     }
 
-    return <div className={`py-2 my-1 cursor-pointer rounded-md hover:bg-gray-200 ${className}`}>
+    return <div className={`py-2 pl-2 my-1 cursor-pointer rounded-md hover:bg-gray-200 ${className}`}>
         <button onClick={handleClick}>New Chat</button>
     </div>
 }
@@ -108,7 +108,7 @@ export function ChatSelection({ id: chatID, title, className = "", selected = fa
     switch (compState.type) {
         case 'normal':
             return (
-                <div className={`pl-4 py-2 my-1 cursor-pointer rounded-md hover:bg-gray-200 ${className} ${selected ? "bg-gray-200" : ""}`} onClick={handleClick}>
+                <div className={`pl-4 py-2 pr-2 my-1 cursor-pointer rounded-md hover:bg-gray-200 ${className} ${selected ? "bg-gray-200" : ""}`} onClick={handleClick}>
                     <div className="flex flex-row justify-between">
                         <span>{title}</span>
                         <div className="hover:bg-gray-300 rounded-full p-1"
@@ -125,7 +125,7 @@ export function ChatSelection({ id: chatID, title, className = "", selected = fa
         case 'menuOpen':
             return (
                 <div className="relative">
-                    <div className={`pl-4 py-2 my-1 cursor-pointer rounded-md hover:bg-gray-200 ${className} ${selected ? "bg-gray-200" : ""}`} onClick={handleClick}>
+                    <div className={`pl-4 py-2 pr-2 my-1 cursor-pointer rounded-md hover:bg-gray-200 ${className} ${selected ? "bg-gray-200" : ""}`} onClick={handleClick}>
                         <div className="flex flex-row">
                             <span>{title}</span>
                             <FiMoreHorizontal className="ml-auto" />
@@ -144,7 +144,7 @@ export function ChatSelection({ id: chatID, title, className = "", selected = fa
         case 'editingTitle':
             return (
                 <div className="relative">
-                    <div className={`pl-4 py-2 my-1 cursor-pointer rounded-md hover:bg-gray-200 ${className} ${selected ? "bg-gray-200" : ""}`} onClick={handleClick}>
+                    <div className={`pl-4 py-2 pr-2 my-1 cursor-pointer rounded-md hover:bg-gray-200 ${className} ${selected ? "bg-gray-200" : ""}`} onClick={handleClick}>
                         <div className="flex flex-row">
                             <input className="border z-10" type="text" autoFocus
                                 value={titleForEditing} onChange={(e) => setTitleForEditing(e.target.value)}

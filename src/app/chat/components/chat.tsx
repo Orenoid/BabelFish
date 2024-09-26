@@ -173,7 +173,7 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
 
     return <div className={`flex flex-row border-t pt-2 pb-2 ${className}`}>
         <textarea
-            className="flex-1 mr-4"
+            className="flex-1 mr-4 p-4"
             placeholder="Type the message content here..."
             value={messageContent} onChange={(e) => setMessageContent(e.target.value)}
             onKeyDown={(e) => {

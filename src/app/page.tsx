@@ -12,9 +12,9 @@ export default function Home() {
   return (
     <div className="flex flex-row h-full">
       {/* sidebar */}
-      <div className="flex flex-col border-r w-[250px]">
-        <ChatSelectionList className="ml-4 mt-12 flex-1 overflow-y-auto" chatSelectionListLoader={LoadChatSelectionListFromLocalStorage}/>
-        <NewChat className="ml-4 mb-12" addNewChat2={AddNewChat}/>
+      <div className="flex px-2 pb-12 flex-col border-r w-[250px]">
+        <ChatSelectionList className="mt-12 flex-1 overflow-y-auto" chatSelectionListLoader={LoadChatSelectionListFromLocalStorage}/>
+        <NewChat className="" addNewChat2={AddNewChat}/>
       </div>
       {/* chat */}
       {chatSelected && <div className="flex flex-col h-full w-full mt-12">
