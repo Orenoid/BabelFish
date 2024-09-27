@@ -5,6 +5,7 @@ import { AddNewChat, type ChatSelection, ChatSelectionListLoader, UpdateChatTitl
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import { FiMoreHorizontal } from "react-icons/fi";
+import { FaPlus } from "react-icons/fa";
 
 
 interface ChatSelectionListProps {
@@ -51,8 +52,9 @@ export function NewChat({ addNewChat2, className = "" }: {
         dispatch(addNewChat(chatSelection.chatSelection))
     }
 
-    return <div className={`py-2 pl-2 my-1 cursor-pointer rounded-md hover:bg-gray-200 ${className}`}
+    return <div className={`flex flex-row py-2 pl-3 my-1 items-center cursor-pointer rounded-md hover:bg-gray-200 ${className}`}
         onClick={handleClick}>
+        <FaPlus className="mr-3" />
         <button>New Chat</button>
     </div>
 }
@@ -84,7 +86,7 @@ export function ChatSelection({ id: chatID, title, className = "", selected = fa
                         setCompState({ type: 'normal', showMoreBtn: false })
                     }
                 }}
-            >   
+            >
                 {
                     !isEditing ?
                         <>

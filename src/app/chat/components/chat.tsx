@@ -181,7 +181,7 @@ export function MessageInput({ messageList, addMesssage, className = "", customN
             <button onClick={() => { translateInput("English", false) }} title="Translate"><MdGTranslate /></button>
         </div>
         <textarea
-            className="flex-1 p-4 resize-none"
+            className="flex-1 p-4 resize-none focus:outline-none"
             placeholder={`Type your message here...\n\nPress Enter to send, Shift+Enter to add a new line`}
             value={messageContent} onChange={(e) => setMessageContent(e.target.value)}
             onKeyDown={(e) => {
