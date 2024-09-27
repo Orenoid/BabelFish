@@ -10,16 +10,20 @@ export default function Home() {
   const chatSelected = chatSelectionList.currentChatID !== undefined
 
   return (
-    <div className="flex flex-row h-full">
+    <div className="flex flex-row h-full w-full">
       {/* sidebar */}
-      <div className="flex px-2 pb-12 flex-col border-r w-[250px]">
-        <ChatSelectionList className="mt-12 flex-1 overflow-y-auto" chatSelectionListLoader={LoadChatSelectionListFromLocalStorage}/>
-        <NewChat className="" addNewChat2={AddNewChat}/>
+      <div className="flex px-2 pb-12 flex-col w-[250px]">
+        <ChatSelectionList className="mt-12 flex-1 overflow-y-auto w-[250px]"
+          chatSelectionListLoader={LoadChatSelectionListFromLocalStorage} />
+        <NewChat addNewChat2={AddNewChat} />
       </div>
-      {/* chat */}
-      {chatSelected && <div className="flex flex-col h-full w-full mt-12">
-        <Chat chatID={chatSelectionList.currentChatID as string} className="h-full w-full" loadChatByID={LoadChatByIDFromLocalStorage} />
-      </div>}
+      {/* content */}
+      {/* can't figure out why using mt-12 here stretches the page height, 
+          while the mt-12 on ChatSelectionList does not... */}
+      <div className="pt-12 w-full">
+        {chatSelected && <Chat className="h-full w-full" chatID={chatSelectionList.currentChatID as string}
+          loadChatByID={LoadChatByIDFromLocalStorage} />}
+      </div>
     </div>
   );
 }

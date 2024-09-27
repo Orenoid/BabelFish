@@ -48,7 +48,9 @@ export function NewChat({ addNewChat2, className = "" }: {
 }) {
     const dispatch = useAppDispatch()
     const handleClick = () => {
-        const chatSelection = addNewChat2("New Chat", [{ "role": "system", "content": "You're a helpful assistant." }])
+        const chatSelection = addNewChat2("New Chat", [
+            { "role": "system", "content": "You're a helpful assistant." },
+        ])
         dispatch(addNewChat(chatSelection.chatSelection))
     }
 

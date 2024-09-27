@@ -25,9 +25,9 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
         setMessageList(prev => [...prev, { role: "assistant", content: answer }]);
     }
 
-    return <div className={`flex flex-col items-center ${className}`}>
+    return <div className={`flex flex-col flex-grow items-center ${className}`}>
         {/* <MessageList className="flex-grow overflow-y-auto" messageList={messageList} /> */}
-        <MessageList className="flex-1 overflow-y-auto w-4/5" messageList={messageList} />
+        <MessageList className="flex-initial overflow-auto w-4/5 h-full" messageList={messageList} />
         {/* <MessageInput className="bottom-0" addMesssage={addMesssage} /> */}
         <MessageInput className="w-4/5" addMesssage={addMesssage} messageList={messageList} />
     </div>
@@ -45,11 +45,10 @@ interface MessageListProps {
 }
 
 export function MessageList({ messageList, className }: MessageListProps) {
-    return <div className={`flex flex-col ${className}`}>
+    return <div className={`flex flex-col pb-5 ${className}`}>
         {messageList.map((message, index) => (
             <Message key={index} role={message.role} content={message.content}
-                // TODO 改成 not last child
-                className={index < messageList.length - 1 ? "mb-5" : ""} />
+                className={"mb-5"} />
         ))}
     </div>
 }
