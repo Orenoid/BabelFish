@@ -123,7 +123,7 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
     }
 
     function translateInput() {
-        const historyContext = messageList.map(message => message.content).join('\n');
+        const historyContext = messageList.map(message => `[START]${message.role}: ${message.content}[END]`).join('\n')
         const translatePrompt = `This is an ongoing conversation:
         """
         ${historyContext}
