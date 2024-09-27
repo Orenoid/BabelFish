@@ -110,10 +110,11 @@ export function MessageContent({ content, className = "" }: MessageContentProps)
 }
 
 
-export function MessageInput({ messageList, addMesssage, className = "" }: {
+export function MessageInput({ messageList, addMesssage, className = "", customNode }: {
     messageList: Message[],
     addMesssage: (message: { content: string, role?: string }) => void,
-    className?: string;
+    className?: string,
+    customNode?: React.ReactNode,
 }) {
     const [messageContent, setMessageContent] = useState("");
 
@@ -174,7 +175,9 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
     }
 
     return <div className={`flex flex-col border-t pt-4 pb-2 px-4 ${className}`}>
+        {/* icons */}
         <div className="flex flex-row px-4 mb-2">
+            {customNode}
             <button onClick={() => { translateInput("English", false) }} title="Translate"><MdGTranslate /></button>
         </div>
         <textarea
@@ -185,7 +188,10 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     handleSend();
+                } else if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    translateInput("English", false);
                 }
             }} rows={4} />
-    </div>
+    </div >
 }
