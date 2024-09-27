@@ -175,7 +175,7 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
     return <div className={`flex flex-row border-t pt-2 pb-2 ${className}`}>
         <textarea
             className="flex-1 mr-4 p-4"
-            placeholder={`Type the message content here...\nPress Enter to send, Shift+Enter to start a new line`}
+            placeholder={`Type your message here...\nPress Enter to send, Shift+Enter to add a new line`}
             value={messageContent} onChange={(e) => setMessageContent(e.target.value)}
             onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
