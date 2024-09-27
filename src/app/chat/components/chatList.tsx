@@ -60,9 +60,10 @@ export function NewChat({ addNewChat2, className = "" }: {
 export function ChatSelection({ id: chatID, title, className = "", selected = false }: { id: string, title: string, className?: string, selected?: boolean }) {
 
     const dispatch = useAppDispatch()
-    const [compState, setCompState] = useState<'normal' | 'showMore' | { titleUnderEdit: string }>('normal')
-    const isEditing = (typeof compState === 'object' && 'titleUnderEdit' in compState)
-    const showMore = (compState === 'showMore')
+    const [compState, setCompState] = useState<{ type: 'normal', showMoreBtn: boolean } | { type: 'showMore' } | { type: 'titleUnderEdit', titleUnderEdit: string }>({ type: 'normal', showMoreBtn: false })
+    const isNormal = (compState.type === 'normal')
+    const isEditing = (compState.type === 'titleUnderEdit')
+    const showMore = (compState.type === 'showMore')
 
     function _updateChatTitle(chatID: string, newTitle: string) {
         UpdateChatTitle(chatID, newTitle)
@@ -72,7 +73,18 @@ export function ChatSelection({ id: chatID, title, className = "", selected = fa
     return (
         <div className={showMore || isEditing ? "relative" : ""}>
             <div className={`pl-4 py-2 pr-2 my-1 cursor-pointer rounded-md hover:bg-gray-200 ${className} ${selected ? "bg-gray-200" : ""}`}
-                onClick={() => { dispatch(setCurrentChatID(chatID)) }}>
+                onClick={() => { dispatch(setCurrentChatID(chatID)) }}
+                onMouseEnter={() => {
+                    if (isNormal) {
+                        setCompState({ type: 'normal', showMoreBtn: true })
+                    }
+                }}
+                onMouseLeave={() => {
+                    if (isNormal) {
+                        setCompState({ type: 'normal', showMoreBtn: false })
+                    }
+                }}
+            >   
                 {
                     !isEditing ?
                         <>
@@ -81,19 +93,19 @@ export function ChatSelection({ id: chatID, title, className = "", selected = fa
                                 <div className="hover:bg-gray-300 rounded-full p-1"
                                     onClick={(e: React.MouseEvent<HTMLDivElement>) => {
                                         e.stopPropagation()
-                                        setCompState('showMore')
+                                        setCompState({ type: 'showMore' })
                                     }}>
-                                    <FiMoreHorizontal className="ml-auto" />
+                                    {((isNormal && compState.showMoreBtn) || showMore) && <FiMoreHorizontal className="ml-auto" />}
                                 </div>
                             </div>
                         </> :
                         <>
                             <input className="border z-10" type="text" autoFocus
-                                value={compState.titleUnderEdit} onChange={(e) => setCompState({ titleUnderEdit: e.target.value })}
+                                value={compState.titleUnderEdit} onChange={(e) => setCompState({ type: 'titleUnderEdit', titleUnderEdit: e.target.value })}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
                                         _updateChatTitle(chatID, compState.titleUnderEdit)
-                                        setCompState('normal')
+                                        setCompState({ type: 'normal', showMoreBtn: false })
                                     }
                                 }}
                             />
@@ -105,7 +117,7 @@ export function ChatSelection({ id: chatID, title, className = "", selected = fa
                 <div className="fixed inset-0 bg-white opacity-0"
                     onClick={() => {
                         _updateChatTitle(chatID, compState.titleUnderEdit)
-                        setCompState('normal')
+                        setCompState({ type: 'normal', showMoreBtn: false })
                     }}>
                 </div>
             }
@@ -113,12 +125,12 @@ export function ChatSelection({ id: chatID, title, className = "", selected = fa
                 showMore && <>
                     <div className="absolute right-0 z-10 bg-white border rounded-md">
                         {/* Dropdown menu items can be added here */}
-                        <div className="p-2 cursor-pointer" onClick={() => setCompState({ titleUnderEdit: title })}>
+                        <div className="p-2 cursor-pointer" onClick={() => setCompState({ type: 'titleUnderEdit', titleUnderEdit: title })}>
                             Edit Title
                         </div>
                     </div>
                     <div className="fixed inset-0 bg-white opacity-0"
-                        onClick={() => setCompState('normal')}>
+                        onClick={() => setCompState({ type: 'normal', showMoreBtn: false })}>
                     </div>
                 </>
             }

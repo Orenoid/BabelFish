@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AddMesssageInChat, ChatLoader, type Message } from "../lib/chat"; // Changed to type-only import
+import { MdGTranslate } from "react-icons/md";
 
 export function Chat({ chatID, loadChatByID, className = "" }: {
     chatID: string,
@@ -46,7 +47,7 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
         {/* <MessageList className="flex-grow overflow-y-auto" messageList={messageList} /> */}
         <MessageList className="flex-1 overflow-y-auto w-4/5" messageList={messageList} />
         {/* <MessageInput className="bottom-0" addMesssage={addMesssage} /> */}
-        <MessageInput className="w-4/5 px-5 pt-5" addMesssage={addMesssage} messageList={messageList} />
+        <MessageInput className="w-4/5" addMesssage={addMesssage} messageList={messageList} />
     </div>
 }
 
@@ -172,20 +173,19 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
 
     }
 
-    return <div className={`flex flex-row border-t pt-2 pb-2 ${className}`}>
+    return <div className={`flex flex-col border-t pt-4 pb-2 px-4 ${className}`}>
+        <div className="flex flex-row px-4 mb-2">
+            <button onClick={() => { translateInput("English", false) }} title="Translate"><MdGTranslate /></button>
+        </div>
         <textarea
-            className="flex-1 mr-4 p-4"
-            placeholder={`Type your message here...\nPress Enter to send, Shift+Enter to add a new line`}
+            className="flex-1 p-4 resize-none"
+            placeholder={`Type your message here...\n\nPress Enter to send, Shift+Enter to add a new line`}
             value={messageContent} onChange={(e) => setMessageContent(e.target.value)}
             onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault(); // Prevent default behavior of Enter key
+                    e.preventDefault();
                     handleSend();
                 }
             }} rows={4} />
-        <div className="flex flex-col justify-around">
-            {/* <button onClick={handleSend}>Send</button> */}
-            <button onClick={() => { translateInput("English", false) }}>Translate</button>
-        </div>
     </div>
 }
