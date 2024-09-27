@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AddMesssageInChat, ChatLoader, type Message } from "../lib/chat"; // Changed to type-only import
 import { MdGTranslate } from "react-icons/md";
+import { chatCompletion, translateMessage } from "../lib/chat-server";
 
 export function Chat({ chatID, loadChatByID, className = "" }: {
     chatID: string,
@@ -19,28 +20,9 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
     async function addMesssage({ content, role = "user" }: { content: string, role?: string }) {
         setMessageList(prev => [...prev, { role, content }]);
         AddMesssageInChat(chatID, { role, content })
-        const url = process.env.NEXT_PUBLIC_OPENAI_CHAT_COMPLETION_URL;
-        if (!url) {
-            console.error('API URL is not defined');
-            return;
-        }
-        const response = await fetch(url, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": "Bearer " + process.env.NEXT_PUBLIC_OPENAI_API_KEY,
-            },
-            body: JSON.stringify({
-                model: "gpt-4o-mini",
-                messages: [
-                    { role, content },
-                ],
-            }),
-        });
-        const data = await response.json();
-        // TODO
-        AddMesssageInChat(chatID, { role: "assistant", content: data.choices[0].message.content })
-        setMessageList(prev => [...prev, { role: "assistant", content: data.choices[0].message.content }]);
+        const answer = await chatCompletion(messageList)
+        AddMesssageInChat(chatID, { role: "assistant", content: answer })
+        setMessageList(prev => [...prev, { role: "assistant", content: answer }]);
     }
 
     return <div className={`flex flex-col items-center ${className}`}>
@@ -124,7 +106,7 @@ export function MessageInput({ messageList, addMesssage, className = "", customN
         setMessageContent("");
     }
 
-    function translateInput(targetLanguage: string = "English", includeHistory: boolean = true, historyMessageCount: number | undefined = undefined) {
+    async function translateInput(targetLanguage: string = "English", includeHistory: boolean = true, historyMessageCount: number | undefined = undefined) {
         const historyContext = includeHistory ?
             messageList.slice(-(historyMessageCount ?? messageList.length)).map(message => `[START]${message.role}: ${message.content}[END]`).join('\n') : ""
         const translatePrompt = `${includeHistory ? `This is an ongoing conversation:
@@ -139,38 +121,8 @@ export function MessageInput({ messageList, addMesssage, className = "", customN
         {
             "translated": "..."
         }`
-        const translateMessage = async () => {
-            const url = process.env.NEXT_PUBLIC_OPENAI_CHAT_COMPLETION_URL;
-            if (!url) {
-                console.error('API URL is not defined');
-                return;
-            }
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': "Bearer " + process.env.NEXT_PUBLIC_OPENAI_API_KEY,
-                },
-                body: JSON.stringify({
-                    model: 'gpt-4o-mini',
-                    messages: [{ role: 'user', content: translatePrompt }],
-                    temperature: 0.7,
-                    response_format: { type: 'json_object' },
-                }),
-            });
-
-            if (!response.ok) {
-                console.error('Error translating message:', response.statusText);
-                return;
-            }
-
-            const data = await response.json();
-            const translatedTextInJson = data.choices[0].message.content;
-            const translatedText = JSON.parse(translatedTextInJson).translated;
-            setMessageContent(translatedText);
-        };
-
-        translateMessage();
+        const translatedText = await translateMessage({ role: 'user', content: translatePrompt })
+        setMessageContent(translatedText);
 
     }
 
