@@ -17,7 +17,7 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
 
     async function addMesssage({ content, role = "user" }: { content: string, role?: string }) {
         setMessageList(prev => [...prev, { role, content }]);
-        AddMesssageInChat(chatID, {role, content})
+        AddMesssageInChat(chatID, { role, content })
         const url = process.env.NEXT_PUBLIC_OPENAI_CHAT_COMPLETION_URL;
         if (!url) {
             console.error('API URL is not defined');
@@ -122,17 +122,18 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
         setMessageContent("");
     }
 
-    function translateInput() {
-        const historyContext = messageList.map(message => `[START]${message.role}: ${message.content}[END]`).join('\n')
-        const translatePrompt = `This is an ongoing conversation:
+    function translateInput(targetLanguage: string = "English", includeHistory: boolean = true, historyMessageCount: number | undefined = undefined) {
+        const historyContext = includeHistory ?
+            messageList.slice(-(historyMessageCount ?? messageList.length)).map(message => `[START]${message.role}: ${message.content}[END]`).join('\n') : ""
+        const translatePrompt = `${includeHistory ? `This is an ongoing conversation:
         """
         ${historyContext}
-        """
-        This is the message the user is about to send:
+        """` : ""}
+        This is a message the user is about to send in conversation:
         """
         ${messageContent}
         """
-        Please translate this message into English, considering the context of the conversation, and return it in JSON format:
+        Please translate this message into ${targetLanguage}, considering the context of the conversation, and return it in JSON format:
         {
             "translated": "..."
         }`
@@ -149,7 +150,7 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
                     'Authorization': "Bearer " + process.env.NEXT_PUBLIC_OPENAI_API_KEY,
                 },
                 body: JSON.stringify({
-                    model: 'gpt-4o-mini', // or the model you are using
+                    model: 'gpt-4o-mini',
                     messages: [{ role: 'user', content: translatePrompt }],
                     temperature: 0.7,
                     response_format: { type: 'json_object' },
@@ -162,7 +163,7 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
             }
 
             const data = await response.json();
-            const translatedTextInJson = data.choices[0].message.content; // Assuming the translated text is in the first choice
+            const translatedTextInJson = data.choices[0].message.content;
             const translatedText = JSON.parse(translatedTextInJson).translated;
             setMessageContent(translatedText);
         };
@@ -184,7 +185,7 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
             }} rows={4} />
         <div className="flex flex-col justify-around">
             <button onClick={handleSend}>Send</button>
-            <button onClick={translateInput}>Translate</button>
+            <button onClick={() => { translateInput("English", false) }}>Translate</button>
         </div>
     </div>
 }
