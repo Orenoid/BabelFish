@@ -5,6 +5,7 @@ import { AddMesssageInChat, ChatLoader, type Message } from "../lib/chat"; // Ch
 import { MdGTranslate } from "react-icons/md";
 import { chatCompletion, translateMessage } from "../lib/chat-server";
 import { TbPencilQuestion } from "react-icons/tb";
+import { diffChars } from "diff";
 
 export function Chat({ chatID, loadChatByID, className = "" }: {
     chatID: string,
@@ -91,6 +92,12 @@ export function MessageContent({ content, className = "" }: MessageContentProps)
     );
 }
 
+interface DiffResult {
+    count: number;
+    added: boolean;
+    removed: boolean;
+    value: string;
+}
 
 export function MessageInput({ messageList, addMesssage, className = "" }: {
     messageList: Message[],
@@ -99,6 +106,7 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
     customNode?: React.ReactNode,
 }) {
     const [messageContent, setMessageContent] = useState("");
+    const [diffResult, setDiffResult] = useState<DiffResult[]>([]);
 
     function handleSend() {
         if (messageContent.trim() === "") return;
@@ -138,8 +146,9 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
         IMPORTANT: The suggested_answer you generate is intended for the user to respond to another conversation, not to reply to the user's current instruction or question.
         `
         const translatedText = await translateMessage({ role: 'user', content: translatePrompt })
+        const diff: DiffResult[] = diffChars("你好我是中国", "你好，我来自中国");
+        setDiffResult(diff);
         setMessageContent(translatedText);
-
     }
 
     interface Icon {
@@ -174,6 +183,16 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
     })
 
     return <div className={`flex flex-col border-t pt-4 pb-2 px-4 ${className}`}>
+        {diffResult.length > 0 && (
+            <div className="mb-2">
+                <h3 className="text-sm font-bold mb-1">Differences:</h3>
+                {diffResult.map((diff, index) => (
+                    <span key={index} className={`text-sm ${diff.added ? 'bg-green-200' : diff.removed ? 'bg-red-200' : ''}`}>
+                        {diff.value}
+                    </span>
+                ))}
+            </div>
+        )}
         {/* top bar */}
         <div className="flex flex-row px-4 mb-2">
             {icons.map((icon, index) => (
