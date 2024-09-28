@@ -54,7 +54,7 @@ export async function translateMessage(message: Message) {
 
     const data = await response.json();
     const translatedTextInJson = data.choices[0].message.content;
-    const translatedText = JSON.parse(translatedTextInJson).translated;
+    const translatedText = JSON.parse(translatedTextInJson).suggested_answer;
     return translatedText;
 }
 

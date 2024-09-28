@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AddMesssageInChat, ChatLoader, type Message } from "../lib/chat"; // Changed to type-only import
 import { MdGTranslate } from "react-icons/md";
 import { chatCompletion, translateMessage } from "../lib/chat-server";
+import { TbPencilQuestion } from "react-icons/tb";
 
 export function Chat({ chatID, loadChatByID, className = "" }: {
     chatID: string,
@@ -91,7 +92,7 @@ export function MessageContent({ content, className = "" }: MessageContentProps)
 }
 
 
-export function MessageInput({ messageList, addMesssage, className = "", customNode }: {
+export function MessageInput({ messageList, addMesssage, className = "" }: {
     messageList: Message[],
     addMesssage: (message: { content: string, role?: string }) => void,
     className?: string,
@@ -105,7 +106,11 @@ export function MessageInput({ messageList, addMesssage, className = "", customN
         setMessageContent("");
     }
 
-    async function translateInput(targetLanguage: string = "English", includeHistory: boolean = true, historyMessageCount: number | undefined = undefined) {
+    async function reviseInputMessage(
+        userInstruction: string,
+        includeHistory: boolean = true,
+        historyMessageCount: number | undefined = undefined
+    ) {
         const historyContext = includeHistory ?
             messageList.slice(-(historyMessageCount ?? messageList.length)).map(message => `[START]${message.role}: ${message.content}[END]`).join('\n') : ""
         const translatePrompt = `${includeHistory ? `This is an ongoing conversation:
@@ -116,32 +121,82 @@ export function MessageInput({ messageList, addMesssage, className = "", customN
         """
         ${messageContent}
         """
-        Please translate this message into ${targetLanguage}, considering the context of the conversation, and return it in JSON format, while preserving the user's line breaks and formatting:
+        If the message is empty, it potentially means the user needs a answer suggestion.
+
+        This is the user's instruction or question:
+        """
+        ${userInstruction}
+        """
+        
+        Please generate a suggestion based on the user's instruction or question, considering the context of the conversation, and return it in the following JSON format, while preserving the user's line breaks and formatting if any:
+        """
         {
-            "translated": "..."
-        }`
+            "suggested_answer": "..."
+        }
+        """
+
+        IMPORTANT: The suggested_answer you generate is intended for the user to respond to another conversation, not to reply to the user's current instruction or question.
+        `
         const translatedText = await translateMessage({ role: 'user', content: translatePrompt })
         setMessageContent(translatedText);
 
     }
 
+    interface Icon {
+        icon: React.ReactNode;
+        userInstruction: string;
+        // allow the icon to specify a callback to handle its custom shortcut
+        shortcutCallback?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => boolean;
+    }
+    // TODO pass icons as props
+    const icons: Icon[] = [
+        {
+            icon: <MdGTranslate size={20} />, userInstruction: "Please translate this message into English",
+            shortcutCallback: (e: React.KeyboardEvent<HTMLTextAreaElement>) => e.key === 'k' && (e.metaKey || e.ctrlKey)
+        },
+        { icon: <TbPencilQuestion size={20} title="Ask AI to answer this question" />, userInstruction: "Help me respond to this message",
+            shortcutCallback: (e: React.KeyboardEvent<HTMLTextAreaElement>) => e.key === '/' && (e.metaKey || e.ctrlKey)
+        },
+    ]
+    // if the icon does not specify a shortcutCallback, use the default behavior, 
+    // which is: alt + number key [i], i is the index of the icon in the icons array
+    icons.map((icon, index) => {
+        if (!icon.shortcutCallback) {
+            icon.shortcutCallback = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+                const targetNumberKey = String.fromCharCode(index + 1);
+                if (e.key === targetNumberKey && e.altKey) {
+                    e.preventDefault();
+                    return true;
+                }
+                return false;
+            }
+        }
+    })
+
     return <div className={`flex flex-col border-t pt-4 pb-2 px-4 ${className}`}>
-        {/* icons */}
+        {/* top bar */}
         <div className="flex flex-row px-4 mb-2">
-            {customNode}
-            <button onClick={() => { translateInput("English", false) }} title="Translate"><MdGTranslate /></button>
+            {icons.map((icon, index) => (
+                <button className="mr-1 bg-transparent p-1 hover:bg-gray-300 rounded" key={index}
+                    onClick={() => { reviseInputMessage(icon.userInstruction) }}>{icon.icon}
+                </button>
+            ))}
         </div>
         <textarea
             className="flex-1 p-4 resize-none focus:outline-none"
             placeholder={`Type your message here...\n\nPress Enter to send, Shift+Enter to add a new line`}
             value={messageContent} onChange={(e) => setMessageContent(e.target.value)}
+
             onKeyDown={(e) => {
+                icons.forEach((icon) => {
+                    if (icon.shortcutCallback && icon.shortcutCallback(e)) {
+                        e.preventDefault();
+                        reviseInputMessage(icon.userInstruction);
+                    }
+                });
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     handleSend();
-                } else if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
-                    e.preventDefault();
-                    translateInput("English", false);
                 }
             }} rows={4} />
     </div >
