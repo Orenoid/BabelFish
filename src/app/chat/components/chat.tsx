@@ -8,6 +8,7 @@ import { TbPencilQuestion, TbTextGrammar } from "react-icons/tb";
 import { diffChars } from "diff";
 import { PiKeyReturnBold } from "react-icons/pi";
 import { FaBackspace } from "react-icons/fa";
+import { Oval } from "react-loader-spinner";
 
 export function Chat({ chatID, loadChatByID, className = "" }: {
     chatID: string,
@@ -197,7 +198,7 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
     // TODO pass from props
     const icons: RevisionEntry[] = [
         {
-            iconNode: <MdGTranslate size={20} />, userInstruction: "Please translate this message into English",
+            iconNode: <MdGTranslate size={20} />, userInstruction: "How do I say it in English to express the same meaning?",
             shortcutCallback: (e: React.KeyboardEvent<HTMLTextAreaElement>) => e.key === 'k' && (e.metaKey || e.ctrlKey)
         },
         {
@@ -205,7 +206,7 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
             shortcutCallback: (e: React.KeyboardEvent<HTMLTextAreaElement>) => e.key === '/' && (e.metaKey || e.ctrlKey)
         },
         {
-            iconNode: <TbTextGrammar />, userInstruction: "Correct grammar issue",
+            iconNode: <TbTextGrammar className="pt-1" />, userInstruction: "Correct grammar issue",
             shortcutCallback: (e: React.KeyboardEvent<HTMLTextAreaElement>) => e.key === 'g' && (e.metaKey || e.ctrlKey)
         }
     ]
@@ -215,14 +216,16 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
         <div className="flex flex-row px-4 mb-2">
             {icons.map((icon, index) => {
                 if (compState.type === 'revising' && compState.revisingIndex === index) {
-                    return <span key={index}>Loading</span>
+                    return <div className="p-1 mr-1 w-[28px]" key={index}>
+                        <Oval height={17} width={17} color="#959595" secondaryColor="#959595" strokeWidth={4} strokeWidthSecondary={4} />
+                    </div>
                 }
-                return <button className="mr-1 bg-transparent p-1 hover:bg-gray-300 rounded" key={index}
+                return <div className="p-1 mr-1 w-[28px] bg-transparent hover:bg-gray-300 rounded" key={index}><button className="" key={index}
                     onClick={() => {
                         const ii = index
                         startRevising(ii)
                     }}>{icon.iconNode}
-                </button>
+                </button></div>
             })}
         </div>
         {
@@ -270,7 +273,7 @@ export function DiffView(
     }, []);
     const changes = diffChars(originalText, revisedText)
     return (
-        <div className={`p-4 pb-2 rounded-lg border-2 shadow-md ${className}`}
+        <div className={`p-4 pb-2 rounded-lg border-2 shadow-md focus:outline-none ${className}`}
             tabIndex={0} ref={containerRef}
             onKeyDown={(e) => {
                 e.stopPropagation()
