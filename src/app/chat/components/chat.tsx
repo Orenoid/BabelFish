@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AddMesssageInChat, ChatLoader, type Message } from "../lib/chat"; // Changed to type-only import
 import { MdGTranslate } from "react-icons/md";
-import { chatCompletion, translateMessage } from "../lib/chat-server";
+import { chatCompletion, reviseMessageAction } from "../lib/chat-server";
 import { TbPencilQuestion } from "react-icons/tb";
 import { diffChars } from "diff";
+import { PiKeyReturnBold } from "react-icons/pi";
+import { FaBackspace } from "react-icons/fa";
 
 export function Chat({ chatID, loadChatByID, className = "" }: {
     chatID: string,
@@ -92,125 +94,150 @@ export function MessageContent({ content, className = "" }: MessageContentProps)
     );
 }
 
-interface DiffResult {
-    count: number;
-    added: boolean;
-    removed: boolean;
-    value: string;
+// TODO consider where to put these types and functions
+
+interface RevisionEntry {
+    iconNode: React.ReactNode;
+    userInstruction: string;
+    // allow the icon to specify a callback to handle its custom shortcut 
+    shortcutCallback?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => boolean;
+}
+
+async function reviseMessage(
+    messageToRevise: string,
+    userInstruction: string,
+    historyMessages: Message[],
+    includeHistory: boolean = true,
+    historyMessageCount: number | undefined = undefined
+) {
+    const historyContext = includeHistory ?
+        historyMessages.slice(-(historyMessageCount ?? historyMessages.length)).map(message => `[START]${message.role}: ${message.content}[END]`).join('\n') : ""
+    const translatePrompt = `${includeHistory ? `This is an ongoing conversation:
+    """
+    ${historyContext}
+    """` : ""}
+    This is a message the user is about to send in conversation:
+    """
+    ${messageToRevise}
+    """
+    If the message is empty, it potentially means the user needs a answer suggestion.
+
+    This is the user's instruction or question:
+    """
+    ${userInstruction}
+    """
+    
+    Please generate a suggestion based on the user's instruction or question, considering the context of the conversation, and return it in the following JSON format, while preserving the user's line breaks and formatting if any:
+    """
+    {
+        "suggested_answer": "..."
+    }
+    """
+
+    IMPORTANT: The suggested_answer you generate is intended for the user to respond to another conversation, not to reply to the user's current instruction or question.
+    `
+    const revisedText = await reviseMessageAction({ role: 'user', content: translatePrompt })
+    return revisedText
 }
 
 export function MessageInput({ messageList, addMesssage, className = "" }: {
     messageList: Message[],
     addMesssage: (message: { content: string, role?: string }) => void,
     className?: string,
-    customNode?: React.ReactNode,
 }) {
+    type MessageInputState =
+        | { type: 'normal' }
+        | { type: 'revising', revisingIndex: number }
+        | { type: 'waitingApprovement', revisedText: string };
+
+    const [compState, setCompState] = useState<MessageInputState>({ type: 'normal' });
     const [messageContent, setMessageContent] = useState("");
-    const [diffResult, setDiffResult] = useState<DiffResult[]>([]);
+    const textAreaRef = useRef<HTMLTextAreaElement>(null)
+    const isNormal = compState.type === 'normal'
+    const waitingForApprovement = compState.type === 'waitingApprovement'
 
     function handleSend() {
+        if (!isNormal) {
+            return
+        }
         if (messageContent.trim() === "") return;
         addMesssage({ content: messageContent });
         setMessageContent("");
     }
 
-    async function reviseInputMessage(
-        userInstruction: string,
-        includeHistory: boolean = true,
-        historyMessageCount: number | undefined = undefined
-    ) {
-        const historyContext = includeHistory ?
-            messageList.slice(-(historyMessageCount ?? messageList.length)).map(message => `[START]${message.role}: ${message.content}[END]`).join('\n') : ""
-        const translatePrompt = `${includeHistory ? `This is an ongoing conversation:
-        """
-        ${historyContext}
-        """` : ""}
-        This is a message the user is about to send in conversation:
-        """
-        ${messageContent}
-        """
-        If the message is empty, it potentially means the user needs a answer suggestion.
-
-        This is the user's instruction or question:
-        """
-        ${userInstruction}
-        """
-        
-        Please generate a suggestion based on the user's instruction or question, considering the context of the conversation, and return it in the following JSON format, while preserving the user's line breaks and formatting if any:
-        """
-        {
-            "suggested_answer": "..."
+    async function startRevising(triggeredIndex: number) {
+        if (!isNormal) {
+            return
         }
-        """
-
-        IMPORTANT: The suggested_answer you generate is intended for the user to respond to another conversation, not to reply to the user's current instruction or question.
-        `
-        const translatedText = await translateMessage({ role: 'user', content: translatePrompt })
-        const diff: DiffResult[] = diffChars("你好我是中国", "你好，我来自中国");
-        setDiffResult(diff);
-        setMessageContent(translatedText);
+        setCompState({ type: 'revising', revisingIndex: triggeredIndex })
+        console.log(`setCompState({ type: 'revising', revisingIndex: triggeredIndex })`)
+        const userInstruction = icons[triggeredIndex].userInstruction
+        const revisedText = await reviseMessage(messageContent, userInstruction, messageList)
+        setCompState({ type: 'waitingApprovement', revisedText })
+        console.log(`setCompState({ type: 'waitingApprovement', revisedText })`)
     }
 
-    interface Icon {
-        icon: React.ReactNode;
-        userInstruction: string;
-        // allow the icon to specify a callback to handle its custom shortcut
-        shortcutCallback?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => boolean;
+    function approveRevision(revisedText: string) {
+        if (!waitingForApprovement) {
+            return
+        }
+        setCompState({ type: 'normal' })
+        setMessageContent(revisedText)
+        textAreaRef.current?.focus()
     }
+
+    function rejectRevision() {
+        if (!waitingForApprovement) {
+            return
+        }
+        setCompState({ type: 'normal' })
+        textAreaRef.current?.focus()
+    }
+
     // TODO pass icons as props
-    const icons: Icon[] = [
+    const icons: RevisionEntry[] = [
         {
-            icon: <MdGTranslate size={20} />, userInstruction: "Please translate this message into English",
+            iconNode: <MdGTranslate size={20} />, userInstruction: "Please translate this message into English",
             shortcutCallback: (e: React.KeyboardEvent<HTMLTextAreaElement>) => e.key === 'k' && (e.metaKey || e.ctrlKey)
         },
-        { icon: <TbPencilQuestion size={20} title="Ask AI to answer this question" />, userInstruction: "Help me respond to this message",
+        {
+            iconNode: <TbPencilQuestion size={20} title="Ask AI to answer this question" />, userInstruction: "Help me respond to this message",
             shortcutCallback: (e: React.KeyboardEvent<HTMLTextAreaElement>) => e.key === '/' && (e.metaKey || e.ctrlKey)
         },
     ]
-    // if the icon does not specify a shortcutCallback, use the default behavior, 
-    // which is: alt + number key [i], i is the index of the icon in the icons array
-    icons.map((icon, index) => {
-        if (!icon.shortcutCallback) {
-            icon.shortcutCallback = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-                const targetNumberKey = String.fromCharCode(index + 1);
-                if (e.key === targetNumberKey && e.altKey) {
-                    e.preventDefault();
-                    return true;
-                }
-                return false;
-            }
-        }
-    })
 
     return <div className={`flex flex-col border-t pt-4 pb-2 px-4 ${className}`}>
-        {diffResult.length > 0 && (
-            <div className="mb-2">
-                <h3 className="text-sm font-bold mb-1">Differences:</h3>
-                {diffResult.map((diff, index) => (
-                    <span key={index} className={`text-sm ${diff.added ? 'bg-green-200' : diff.removed ? 'bg-red-200' : ''}`}>
-                        {diff.value}
-                    </span>
-                ))}
-            </div>
-        )}
         {/* top bar */}
         <div className="flex flex-row px-4 mb-2">
-            {icons.map((icon, index) => (
-                <button className="mr-1 bg-transparent p-1 hover:bg-gray-300 rounded" key={index}
-                    onClick={() => { reviseInputMessage(icon.userInstruction) }}>{icon.icon}
+            {icons.map((icon, index) => {
+                if (compState.type === 'revising' && compState.revisingIndex === index) {
+                    return <span key={index}>Loading</span>
+                }
+                return <button className="mr-1 bg-transparent p-1 hover:bg-gray-300 rounded" key={index}
+                    onClick={() => {
+                        const ii = index
+                        startRevising(ii)
+                    }}>{icon.iconNode}
                 </button>
-            ))}
+            })}
         </div>
+        {
+            waitingForApprovement && <DiffView originalText={messageContent} revisedText={compState.revisedText}
+                approveRevisionCallback={approveRevision} rejectRevisionCallback={rejectRevision} />
+        }
         <textarea
             className="flex-1 p-4 resize-none focus:outline-none"
+            ref={textAreaRef}
             placeholder={`Type your message here...\n\nPress Enter to send, Shift+Enter to add a new line`}
             value={messageContent} onChange={(e) => setMessageContent(e.target.value)}
+            readOnly={!isNormal}
 
             onKeyDown={(e) => {
-                icons.forEach((icon) => {
+                icons.forEach((icon, i) => {
                     if (icon.shortcutCallback && icon.shortcutCallback(e)) {
+                        const ii = i
                         e.preventDefault();
-                        reviseInputMessage(icon.userInstruction);
+                        startRevising(ii)
                     }
                 });
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -219,4 +246,47 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
                 }
             }} rows={4} />
     </div >
+}
+
+interface DiffResult {
+    count: number;
+    added: boolean;
+    removed: boolean;
+    value: string;
+}
+
+export function DiffView(
+    { originalText, revisedText, approveRevisionCallback, rejectRevisionCallback, className = "" }: {
+        originalText: string,
+        revisedText: string,
+        approveRevisionCallback: (revisedText: string) => void,
+        rejectRevisionCallback: () => void
+        className?: string
+    }
+) {
+    const changeObjects: DiffResult[] = diffChars(originalText, revisedText)
+    return (
+        <div className={`p-4 pb-2 rounded-lg border-2 shadow-md ${className}`}>
+            {changeObjects.length > 0 && (
+                <div className="flex flex-col relative">
+                    <div className="flex flex-row mb-4">
+                        {changeObjects.map((diff, index) => (
+                            <span key={index} className={`text-sm ${diff.added ? 'bg-green-200' : diff.removed ? 'bg-red-200 line-through text-gray-500' : ''}`}>
+                                {diff.value}
+                            </span>
+                        ))}
+                    </div>
+                    <div className="flex flex-row self-end">
+                        <button className="mr-2 py-0 px-2 bg-gray-800 rounded-md text-[12px] text-white" onClick={() => { approveRevisionCallback(revisedText) }}>
+                            <PiKeyReturnBold className="inline-block mr-1" color="white" /> Approve
+                        </button>
+                        <button className="mr-2 py-0 px-1 rounded-lg text-[15px] text-gray-500" onClick={rejectRevisionCallback}>
+                            <FaBackspace className="inline-block mr-1" color="6b7280" /> Reject
+                        </button>
+                    </div>
+                </div>
+            )}
+
+        </div>
+    )
 }
