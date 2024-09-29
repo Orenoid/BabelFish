@@ -248,13 +248,6 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
     </div >
 }
 
-interface DiffResult {
-    count: number;
-    added: boolean;
-    removed: boolean;
-    value: string;
-}
-
 export function DiffView(
     { originalText, revisedText, approveRevisionCallback, rejectRevisionCallback, className = "" }: {
         originalText: string,
@@ -264,15 +257,15 @@ export function DiffView(
         className?: string
     }
 ) {
-    const changeObjects: DiffResult[] = diffChars(originalText, revisedText)
+    const changes = diffChars(originalText, revisedText)
     return (
         <div className={`p-4 pb-2 rounded-lg border-2 shadow-md ${className}`}>
-            {changeObjects.length > 0 && (
+            {changes.length > 0 && (
                 <div className="flex flex-col relative">
                     <div className="flex flex-row mb-4">
-                        {changeObjects.map((diff, index) => (
-                            <span key={index} className={`text-sm ${diff.added ? 'bg-green-200' : diff.removed ? 'bg-red-200 line-through text-gray-500' : ''}`}>
-                                {diff.value}
+                        {changes.map((change, index) => (
+                            <span key={index} className={`text-sm ${change.added ? 'bg-green-200' : change.removed ? 'bg-red-200 line-through text-gray-500' : ''}`}>
+                                {change.value}
                             </span>
                         ))}
                     </div>
