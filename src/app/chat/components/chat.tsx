@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { AddMesssageInChat, ChatLoader, type Message } from "../lib/chat"; // Changed to type-only import
 import { MdGTranslate } from "react-icons/md";
 import { chatCompletion, reviseMessageAction } from "../lib/chat-server";
-import { TbPencilQuestion, TbTextGrammar } from "react-icons/tb";
+import { TbPencilQuestion } from "react-icons/tb";
 import { diffChars } from "diff";
 import { PiKeyReturnBold } from "react-icons/pi";
 import { FaBackspace } from "react-icons/fa";
 import { Oval } from "react-loader-spinner";
+import { LuSpellCheck2 } from "react-icons/lu";
 
 export function Chat({ chatID, loadChatByID, className = "" }: {
     chatID: string,
@@ -206,7 +207,7 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
             shortcutCallback: (e: React.KeyboardEvent<HTMLTextAreaElement>) => e.key === '/' && (e.metaKey || e.ctrlKey)
         },
         {
-            iconNode: <TbTextGrammar className="pt-1" />, userInstruction: "Correct grammar issue",
+            iconNode: <LuSpellCheck2 className="pt-1" />, userInstruction: "Correct grammar issue",
             shortcutCallback: (e: React.KeyboardEvent<HTMLTextAreaElement>) => e.key === 'g' && (e.metaKey || e.ctrlKey)
         }
     ]
