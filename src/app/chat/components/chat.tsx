@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AddMesssageInChat, ChatLoader, type Message } from "../lib/chat"; // Changed to type-only import
 import { MdGTranslate } from "react-icons/md";
 import { chatCompletion, reviseMessageAction } from "../lib/chat-server";
-import { TbPencilQuestion } from "react-icons/tb";
+import { TbPencilQuestion, TbTextGrammar } from "react-icons/tb";
 import { diffChars } from "diff";
 import { PiKeyReturnBold } from "react-icons/pi";
 import { FaBackspace } from "react-icons/fa";
@@ -194,7 +194,7 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
         textAreaRef.current?.focus()
     }
 
-    // TODO pass icons as props
+    // TODO pass from props
     const icons: RevisionEntry[] = [
         {
             iconNode: <MdGTranslate size={20} />, userInstruction: "Please translate this message into English",
@@ -204,6 +204,10 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
             iconNode: <TbPencilQuestion size={20} title="Ask AI to answer this question" />, userInstruction: "Help me respond to this message",
             shortcutCallback: (e: React.KeyboardEvent<HTMLTextAreaElement>) => e.key === '/' && (e.metaKey || e.ctrlKey)
         },
+        {
+            iconNode: <TbTextGrammar />, userInstruction: "Correct grammar issue",
+            shortcutCallback: (e: React.KeyboardEvent<HTMLTextAreaElement>) => e.key === 'g' && (e.metaKey || e.ctrlKey)
+        }
     ]
 
     return <div className={`flex flex-col border-t pt-4 pb-2 px-4 ${className}`}>
@@ -257,9 +261,26 @@ export function DiffView(
         className?: string
     }
 ) {
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (containerRef.current) {
+            containerRef.current.focus();
+        }
+    }, []);
     const changes = diffChars(originalText, revisedText)
     return (
-        <div className={`p-4 pb-2 rounded-lg border-2 shadow-md ${className}`}>
+        <div className={`p-4 pb-2 rounded-lg border-2 shadow-md ${className}`}
+            tabIndex={0} ref={containerRef}
+            onKeyDown={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+                if (e.key === 'Enter') {
+                    approveRevisionCallback(revisedText);
+                } else if (e.key === 'Backspace') {
+                    rejectRevisionCallback();
+                }
+            }}>
             {changes.length > 0 && (
                 <div className="flex flex-col relative">
                     <div className="flex flex-row mb-4">
