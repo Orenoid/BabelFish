@@ -288,9 +288,10 @@ export function DiffView(
                 <div className="flex flex-col relative">
                     <div className="flex flex-row mb-4">
                         {changes.map((change, index) => (
-                            <span key={index} className={`text-sm ${change.added ? 'bg-green-200' : change.removed ? 'bg-red-200 line-through text-gray-500' : ''}`}>
-                                {change.value}
-                            </span>
+                            <div key={index} className={`text-sm ${change.added ? 'bg-green-200' : change.removed ? 'bg-red-200 line-through text-gray-500' : ''}`}>
+                                {/* TODO fix displaying line break issue */}
+                                <div dangerouslySetInnerHTML={{ __html: change.value.replace(/\n/g, '<br />').replace(/ /g, '&nbsp;') }} />
+                            </div>
                         ))}
                     </div>
                     <div className="flex flex-row self-end">
