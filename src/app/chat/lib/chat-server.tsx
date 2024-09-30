@@ -26,7 +26,7 @@ export async function chatCompletion(messageList: Message[]) {
     return data.choices[0].message.content;
 }
 
-export async function translateMessage(message: Message) {
+export async function reviseMessageAction(message: Message) {
     'use server'
     const url = process.env.OPENAI_CHAT_COMPLETION_URL;
     if (!url) {
@@ -53,9 +53,9 @@ export async function translateMessage(message: Message) {
     }
 
     const data = await response.json();
-    const translatedTextInJson = data.choices[0].message.content;
-    const translatedText = JSON.parse(translatedTextInJson).suggested_answer;
-    return translatedText;
+    const revisedTextInJson = data.choices[0].message.content;
+    const revisedText = JSON.parse(revisedTextInJson).suggested_answer;
+    return revisedText;
 }
 
 
