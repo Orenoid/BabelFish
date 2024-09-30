@@ -10,32 +10,57 @@ import { PiKeyReturnBold } from "react-icons/pi";
 import { FaBackspace } from "react-icons/fa";
 import { Oval } from "react-loader-spinner";
 import { LuSpellCheck2 } from "react-icons/lu";
+import { useImmer } from "use-immer";
 
 export function Chat({ chatID, loadChatByID, className = "" }: {
     chatID: string,
     loadChatByID: ChatLoader
     className?: string;
 }) {
-    const [messageList, setMessageList] = useState<Message[]>([]);
+    // compState: normal, stacking
+    const [messageListStack, updateMessageListStack] = useImmer<Message[][]>([])
+    const isStacking = messageListStack.length > 1
+    const currentMessageList = messageListStack.length > 0 ? messageListStack[messageListStack.length - 1] : []
 
     useEffect(() => {
         const messageList = loadChatByID(chatID)
-        setMessageList(messageList)
-    }, [chatID, loadChatByID])
+        updateMessageListStack([messageList])
+    }, [chatID, loadChatByID, updateMessageListStack])
 
     async function addMesssage({ content, role = "user" }: { content: string, role?: string }) {
-        setMessageList(prev => [...prev, { role, content }]);
+        updateMessageListStack(draft => {
+            draft[draft.length - 1].push({ role, content })
+        })
+        // setMessageList(prev => [...prev, { role, content }])
         AddMesssageInChat(chatID, { role, content })
-        const answer = await chatCompletion(messageList)
+        const answer = await chatCompletion(currentMessageList)
         AddMesssageInChat(chatID, { role: "assistant", content: answer })
-        setMessageList(prev => [...prev, { role: "assistant", content: answer }]);
+        // setMessageList(prev => [...prev, { role: "assistant", content: answer }]);
+        updateMessageListStack(draft => {
+            draft[draft.length - 1].push({ role: "assistant", content: answer })
+        })
     }
 
     return <div className={`flex flex-col flex-grow items-center ${className}`}>
+        {isStacking && <div onClick={() => {
+            updateMessageListStack(draft => {
+                draft.pop();
+            });
+        }}>Back to previous chat</div>}
+        <button onClick={() => {
+            updateMessageListStack(draft => {
+                draft.push(
+                    [{
+                        role: 'system',
+                        content: `hi there ${messageListStack.length}`
+                    }]
+                )
+            })
+        }}>Test stack button</button>
         {/* <MessageList className="flex-grow overflow-y-auto" messageList={messageList} /> */}
-        <MessageList className="flex-initial overflow-auto w-4/5 h-full" messageList={messageList} />
+        <MessageList className="flex-initial overflow-auto w-4/5 h-full" messageList={currentMessageList} />
         {/* <MessageInput className="bottom-0" addMesssage={addMesssage} /> */}
-        <MessageInput className="w-4/5" addMesssage={addMesssage} messageList={messageList} />
+        <MessageInput className="w-4/5" addMesssage={addMesssage} messageList={currentMessageList} />
     </div>
 }
 
@@ -172,11 +197,9 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
             return
         }
         setCompState({ type: 'revising', revisingIndex: triggeredIndex })
-        console.log(`setCompState({ type: 'revising', revisingIndex: triggeredIndex })`)
         const userInstruction = icons[triggeredIndex].userInstruction
         const revisedText = await reviseMessage(messageContent, userInstruction, messageList)
         setCompState({ type: 'waitingApprovement', revisedText })
-        console.log(`setCompState({ type: 'waitingApprovement', revisedText })`)
     }
 
     function approveRevision(revisedText: string) {
@@ -242,7 +265,7 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
             // 1. more appropriate max-width
             // 2. line wrapping for content
             waitingForApprovement && <DiffView className={`absolute w-fit min-w-[700px] max-w-[1000px] bg-white`} style={{ bottom: `${calculateTextAreaHeight()}px` }}
-                originalText={messageContent} revisedText={compState.revisedText }
+                originalText={messageContent} revisedText={compState.revisedText}
                 approveRevisionCallback={approveRevision} rejectRevisionCallback={rejectRevision} />
         }
         {/* Input Box */}
