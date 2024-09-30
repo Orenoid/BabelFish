@@ -207,12 +207,20 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
             shortcutCallback: (e: React.KeyboardEvent<HTMLTextAreaElement>) => e.key === '/' && (e.metaKey || e.ctrlKey)
         },
         {
-            iconNode: <LuSpellCheck2 className="pt-1" />, userInstruction: "Correct grammar issue",
+            iconNode: <LuSpellCheck2 size={21} className="ml-[-2px]" />, userInstruction: "Correct grammar issue",
             shortcutCallback: (e: React.KeyboardEvent<HTMLTextAreaElement>) => e.key === 'g' && (e.metaKey || e.ctrlKey)
         }
     ]
 
-    return <div className={`flex flex-col border-t pt-4 pb-2 px-4 ${className}`}>
+    function calculateTextAreaHeight(): number {
+        if (textAreaRef.current) {
+            const textAreaRect = textAreaRef.current.getBoundingClientRect();
+            return window.innerHeight - textAreaRect.top
+        }
+        return 170 // by default
+    }
+
+    return <div className={`flex flex-col relative border-t pt-4 pb-2 px-4 ${className}`}>
         {/* top bar */}
         <div className="flex flex-row px-4 mb-2">
             {icons.map((icon, index) => {
@@ -230,9 +238,14 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
             })}
         </div>
         {
-            waitingForApprovement && <DiffView originalText={messageContent} revisedText={compState.revisedText}
+            // TODO 
+            // 1. more appropriate max-width
+            // 2. line wrapping for content
+            waitingForApprovement && <DiffView className={`absolute w-fit min-w-[700px] max-w-[1000px] bg-white`} style={{ bottom: `${calculateTextAreaHeight()}px` }}
+                originalText={messageContent} revisedText={compState.revisedText }
                 approveRevisionCallback={approveRevision} rejectRevisionCallback={rejectRevision} />
         }
+        {/* Input Box */}
         <textarea
             className="flex-1 p-4 resize-none focus:outline-none"
             ref={textAreaRef}
@@ -257,12 +270,13 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
 }
 
 export function DiffView(
-    { originalText, revisedText, approveRevisionCallback, rejectRevisionCallback, className = "" }: {
+    { originalText, revisedText, approveRevisionCallback, rejectRevisionCallback, style, className = "" }: {
         originalText: string,
         revisedText: string,
         approveRevisionCallback: (revisedText: string) => void,
         rejectRevisionCallback: () => void
-        className?: string
+        className?: string,
+        style: object
     }
 ) {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -274,7 +288,7 @@ export function DiffView(
     }, []);
     const changes = diffChars(originalText, revisedText)
     return (
-        <div className={`p-4 pb-2 rounded-lg border-2 shadow-md focus:outline-none ${className}`}
+        <div className={`p-4 pb-2 rounded-lg border-2 shadow-md focus:outline-none ${className}`} style={style}
             tabIndex={0} ref={containerRef}
             onKeyDown={(e) => {
                 e.stopPropagation()
@@ -287,11 +301,14 @@ export function DiffView(
             }}>
             {changes.length > 0 && (
                 <div className="flex flex-col relative">
-                    <div className="flex flex-row mb-4">
+                    <div className="flex flex-wrap mb-4">
                         {changes.map((change, index) => (
-                            <div key={index} className={`text-sm ${change.added ? 'bg-green-200' : change.removed ? 'bg-red-200 line-through text-gray-500' : ''}`}>
+                            <div key={index} className={`inline-block whitespace-pre-wrap break-words ${change.added ? 'bg-green-200' : change.removed ? 'bg-red-200 line-through text-gray-500' : ''}`}>
                                 {/* TODO fix displaying line break issue */}
-                                <div dangerouslySetInnerHTML={{ __html: change.value.replace(/\n/g, '<br />').replace(/ /g, '&nbsp;') }} />
+                                {change.value}
+                                {/* <div className="w-full whitespace-pre-wrap break-words" dangerouslySetInnerHTML={{
+                                    __html: change.value.replace(/\n/g, '<br />').replace(/ /g, '&nbsp;'),
+                                }} /> */}
                             </div>
                         ))}
                     </div>
