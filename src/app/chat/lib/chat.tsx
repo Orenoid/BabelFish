@@ -1,3 +1,6 @@
+import { SystemMessage, TextMessage } from "../components/message";
+import { Message } from "./message";
+
 export function LoadChatSelectionListFromLocalStorage(): {
     chatSelectionList: ChatSelection[], currentSelectedChatID?: string
 } {
@@ -19,22 +22,36 @@ export function LoadChatSelectionListFromLocalStorage(): {
     };
 }
 
+interface RawMessage {
+    role: string
+    content: string
+}
+
 export function LoadChatByIDFromLocalStorage(chatID: string): Message[] {
     // 从 localStorage 根据 chatID 读取消息列表
     const messageListJSON = localStorage.getItem(`chat_${chatID}`);
-    
+
     // 如果 localStorage 中没有数据，返回空数组
     if (!messageListJSON) {
         return [];
     }
 
-    return JSON.parse(messageListJSON);
+    const rawMessages: RawMessage[] = JSON.parse(messageListJSON)
+    const messageList: Message[] = rawMessages.map((rawMsg) => {
+        if (rawMsg.role === 'system') {
+            return new SystemMessage(rawMsg.content)
+        }
+        return new TextMessage(rawMsg.role, rawMsg.content)
+    })
+
+    return messageList
 }
 
+// TODO
 export function AddNewChat(
     chatTitle: string = "New Chat",
     initialMessageList: Message[] = []
-): { 
+): {
     chatSelection: ChatSelection,
 } {
     // 从 localStorage 读取现有的 chat selection list
@@ -54,7 +71,7 @@ export function AddNewChat(
     localStorage.setItem('chatSelectionList', JSON.stringify(chatSelectionList));
 
     // 将初始消息列表保存到 localStorage 中
-    localStorage.setItem(`chat_${newChatID}`, JSON.stringify(initialMessageList));
+    localStorage.setItem(`chat_${newChatID}`, JSON.stringify(initialMessageList.filter((msg) => (msg.toJSON() !== null)).map((msg) => msg.toJSON())));
 
     return {
         chatSelection: newChatSelection
@@ -62,12 +79,15 @@ export function AddNewChat(
 }
 
 export function AddMesssageInChat(chatID: string, message: Message): void {
+    if (message.toJSON() === null) {
+        return
+    }
     // 从 localStorage 读取现有的消息列表
     const messageListJSON = localStorage.getItem(`chat_${chatID}`);
-    const messageList: Message[] = messageListJSON ? JSON.parse(messageListJSON) : [];
+    const messageList: RawMessage[] = messageListJSON ? JSON.parse(messageListJSON) : [];
 
     // 将新的消息添加到消息列表中
-    messageList.push(message);
+    messageList.push(message.toJSON() as RawMessage);
 
     // 更新 localStorage 中的消息列表
     localStorage.setItem(`chat_${chatID}`, JSON.stringify(messageList));
@@ -98,7 +118,7 @@ export interface ChatLoader {
 }
 
 export interface AddNewChat {
-    (chatTitle?:string, initialMessageList?: Message[]): {
+    (chatTitle?: string, initialMessageList?: Message[]): {
         chatSelection: ChatSelection
     }
 }
@@ -110,9 +130,4 @@ export interface AddMesssageInChat {
 export interface ChatSelection {
     id: string;
     title: string;
-}
-
-export interface Message {
-    role: string;
-    content: string;
 }

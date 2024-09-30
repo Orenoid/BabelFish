@@ -15,7 +15,7 @@ export default function Home() {
       <div className="flex px-2 pb-12 flex-col w-[250px]">
         <ChatSelectionList className="mt-12 flex-1 overflow-y-auto w-[250px]"
           chatSelectionListLoader={LoadChatSelectionListFromLocalStorage} />
-        <NewChat addNewChat2={AddNewChat} />
+        <NewChat addNewChat={AddNewChat} />
       </div>
       {/* content */}
       {/* can't figure out why using mt-12 here stretches the page height, 

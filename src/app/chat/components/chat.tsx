@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AddMesssageInChat, ChatLoader, type Message } from "../lib/chat"; // Changed to type-only import
+import { AddMesssageInChat, ChatLoader } from "../lib/chat"; // Changed to type-only import
 import { MdGTranslate } from "react-icons/md";
 import { chatCompletion, reviseMessageAction } from "../lib/chat-server";
 import { TbPencilQuestion } from "react-icons/tb";
@@ -11,6 +11,8 @@ import { FaBackspace } from "react-icons/fa";
 import { Oval } from "react-loader-spinner";
 import { LuSpellCheck2 } from "react-icons/lu";
 import { useImmer } from "use-immer";
+import { type Message } from "../lib/message";
+import { TextMessage } from "./message";
 
 export function Chat({ chatID, loadChatByID, className = "" }: {
     chatID: string,
@@ -28,35 +30,29 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
     }, [chatID, loadChatByID, updateMessageListStack])
 
     async function addMesssage({ content, role = "user" }: { content: string, role?: string }) {
+        const newInpuMessage = new TextMessage(role, content)
+        AddMesssageInChat(chatID, newInpuMessage)
         updateMessageListStack(draft => {
-            draft[draft.length - 1].push({ role, content })
+            draft[draft.length - 1].push(newInpuMessage)
         })
-        // setMessageList(prev => [...prev, { role, content }])
-        AddMesssageInChat(chatID, { role, content })
-        const answer = await chatCompletion(currentMessageList)
-        AddMesssageInChat(chatID, { role: "assistant", content: answer })
-        // setMessageList(prev => [...prev, { role: "assistant", content: answer }]);
+        console.log(messageListStack.length > 0 ? messageListStack[messageListStack.length - 1] : [])
+        // TODO consider how to trigger chat completion, note that in the future, we need to support adding messages without triggering chat completion
+        const answer = await chatCompletion(
+            [...currentMessageList, newInpuMessage].
+                filter((msg) => msg.toJSON() !== null).
+                map((msg) => (msg.toJSON() as { role: string, content: string }))
+        )
+        AddMesssageInChat(chatID, new TextMessage('assistant', answer))
         updateMessageListStack(draft => {
-            draft[draft.length - 1].push({ role: "assistant", content: answer })
+            draft[draft.length - 1].push(new TextMessage('assistant', answer))
         })
     }
-
     return <div className={`flex flex-col flex-grow items-center ${className}`}>
         {isStacking && <div onClick={() => {
             updateMessageListStack(draft => {
                 draft.pop();
             });
         }}>Back to previous chat</div>}
-        <button onClick={() => {
-            updateMessageListStack(draft => {
-                draft.push(
-                    [{
-                        role: 'system',
-                        content: `hi there ${messageListStack.length}`
-                    }]
-                )
-            })
-        }}>Test stack button</button>
         {/* <MessageList className="flex-grow overflow-y-auto" messageList={messageList} /> */}
         <MessageList className="flex-initial overflow-auto w-4/5 h-full" messageList={currentMessageList} />
         {/* <MessageInput className="bottom-0" addMesssage={addMesssage} /> */}
@@ -71,28 +67,19 @@ export interface MessageProps {
 }
 
 interface MessageListProps {
-    messageList: { role: string; content: string; }[];
+    messageList: Message[];
     className?: string;
 }
 
 export function MessageList({ messageList, className }: MessageListProps) {
     return <div className={`flex flex-col pb-5 ${className}`}>
-        {messageList.map((message, index) => (
-            <Message key={index} role={message.role} content={message.content}
-                className={"mb-5"} />
-        ))}
+        {messageList.map((message, index) => {
+            const Comp = message.render()
+            return <Comp key={index} className="mb-5" />
+        })}
     </div>
 }
 
-
-export function Message({ role, content, className }: MessageProps) {
-    return <>
-        <div className={`flex flex-col ${className}`}>
-            <Role className="mb-2" name={role} />
-            <MessageContent content={content} />
-        </div>
-    </>
-}
 
 export interface RoleProps {
     name: string;
@@ -137,8 +124,10 @@ async function reviseMessage(
     includeHistory: boolean = true,
     historyMessageCount: number | undefined = undefined
 ) {
+
     const historyContext = includeHistory ?
-        historyMessages.slice(-(historyMessageCount ?? historyMessages.length)).map(message => `[START]${message.role}: ${message.content}[END]`).join('\n') : ""
+        // TODO  ${message.toJSON()?.content}
+        historyMessages.slice(-(historyMessageCount ?? historyMessages.length)).map(message => `[START]${message.role}: ${message.toJSON()?.content}[END]`).join('\n') : ""
     const translatePrompt = `${includeHistory ? `This is an ongoing conversation:
     """
     ${historyContext}
