@@ -85,19 +85,18 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
             // 2. ai's json response, included in request but not displaying either
             new TextMessage('assistant', revisedText, false, true),
             // 3. the revised text, displaying but not included
-            new RecommendedRespMessage('assistant', `The recommended response is as follow:
-                ${revisedText}
-                If you have any more questions, feel free to continue the discussion with me.`, true, false)
+            new RecommendedRespMessage('assistant', revisedText, true, false)
         ]
         updateMessageListStack(draft => { draft.push(nextLevelMessages) })
     }
 
-    return <div className={`flex flex-col flex-grow items-center ${className}`}>
-        {isStacking && <div onClick={() => {
-            updateMessageListStack(draft => {
-                draft.pop();
-            });
-        }}><IoIosArrowDown /></div>}
+    return <div className={`flex flex-col flex-grow items-center rounded-lg ${className}`}>
+        {/* <div className={`self-start ml-[100px] font-bold text-xl pt-2 w-4/5 text-[#5f5f5f]`}>New Chat</div> */}
+        {isStacking &&
+            <div className="hover:bg-gray-200 cursor-pointer py-2 w-4/5 flex justify-center"
+                onClick={() => { updateMessageListStack(draft => { draft.pop() }); }}>
+                <IoIosArrowDown size={30} color="#5f5f5f" />
+            </div>}
         {/* <MessageList className="flex-grow overflow-y-auto" messageList={messageList} /> */}
         <MessageList className="flex-initial overflow-auto w-4/5 h-full" messageList={currentMessageList} />
         {/* <MessageInput className="bottom-0" addMesssage={addMesssage} /> */}
@@ -384,6 +383,7 @@ export function DiffView(
             }}>
             {changes.length > 0 && (
                 <div className="flex flex-col relative">
+                    {/* diff text */}
                     <div className="flex flex-wrap mb-4">
                         {changes.map((change, index) => (
                             <div key={index} className={`inline-block whitespace-pre-wrap break-words ${change.added ? 'bg-green-200' : change.removed ? 'bg-red-200 line-through text-gray-500' : ''}`}>
@@ -395,6 +395,7 @@ export function DiffView(
                             </div>
                         ))}
                     </div>
+                    {/* buttons */}
                     <div className="flex flex-row self-end">
                         <button className="mr-2 py-0 px-2 bg-gray-800 rounded-md text-[12px] text-white" onClick={() => { approveRevisionCallback(revisedText) }}>
                             <PiKeyReturnBold className="inline-block mr-1" color="white" /> Approve
