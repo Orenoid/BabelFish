@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { AddMesssageInChat, ChatLoader, type Message } from "../lib/chat"; // Changed to type-only import
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
+import { AddMesssageInChat, ChatLoader } from "../lib/chat"; // Changed to type-only import
 import { MdGTranslate } from "react-icons/md";
 import { chatCompletion, reviseMessageAction } from "../lib/chat-server";
 import { TbPencilQuestion } from "react-icons/tb";
@@ -10,32 +10,103 @@ import { PiKeyReturnBold } from "react-icons/pi";
 import { FaBackspace } from "react-icons/fa";
 import { Oval } from "react-loader-spinner";
 import { LuSpellCheck2 } from "react-icons/lu";
+import { useImmer } from "use-immer";
+import { type Message } from "../lib/message";
+import { RecommendedRespMessage, TextMessage } from "./message";
+import { LiaComments } from "react-icons/lia";
+import { IoIosArrowDown } from "react-icons/io";
 
 export function Chat({ chatID, loadChatByID, className = "" }: {
     chatID: string,
     loadChatByID: ChatLoader
     className?: string;
 }) {
-    const [messageList, setMessageList] = useState<Message[]>([]);
+    // compState: normal, stacking
+    const [messageListStack, updateMessageListStack] = useImmer<Message[][]>([])
+    const [inputState, setInputState] = useState<MessageInputState>({ type: 'normal', messageContent: '' })
+    const isStacking = messageListStack.length > 1
+    const currentMessageList = messageListStack.length > 0 ? messageListStack[messageListStack.length - 1] : []
 
     useEffect(() => {
         const messageList = loadChatByID(chatID)
-        setMessageList(messageList)
-    }, [chatID, loadChatByID])
+        updateMessageListStack([messageList])
+        setInputState({ type: 'normal', messageContent: '' })
+    }, [chatID, loadChatByID, updateMessageListStack])
 
     async function addMesssage({ content, role = "user" }: { content: string, role?: string }) {
-        setMessageList(prev => [...prev, { role, content }]);
-        AddMesssageInChat(chatID, { role, content })
-        const answer = await chatCompletion(messageList)
-        AddMesssageInChat(chatID, { role: "assistant", content: answer })
-        setMessageList(prev => [...prev, { role: "assistant", content: answer }]);
+        const newInpuMessage = new TextMessage(role, content)
+        if (!isStacking) {
+            AddMesssageInChat(chatID, newInpuMessage)
+        }
+        updateMessageListStack(draft => {
+            draft[draft.length - 1].push(newInpuMessage)
+        })
+        // TODO consider how to trigger chat completion, note that in the future, we need to support adding messages without triggering chat completion
+        const answer = await chatCompletion(
+            [...currentMessageList, newInpuMessage].
+                filter((msg) => msg.includedInChatCompletion).
+                map((msg) => (msg.toJSON() as { role: string, content: string }))
+        )
+        if (!isStacking) {
+            AddMesssageInChat(chatID, new TextMessage('assistant', answer))
+        }
+        updateMessageListStack(draft => {
+            draft[draft.length - 1].push(new TextMessage('assistant', answer))
+        })
     }
 
-    return <div className={`flex flex-col flex-grow items-center ${className}`}>
+    function startFollowUpDiscussion(userInstruction: string, messageToRevise: string, revisedText: string) {
+        const historyContext = true ?
+            currentMessageList.slice(-currentMessageList.length).
+                filter((msg) => msg.includedInChatCompletion).
+                map(msg => `[START]${msg.role}: ${msg.toJSON().content}[END]`).join('\n') : ""
+        const revisePrompt = `${true ? `This is an ongoing conversation:
+        """
+        ${historyContext}
+        """` : ""}
+        This is a message the user is about to send in conversation:
+        """
+        ${messageToRevise}
+        """
+        If the message is empty, it potentially means the user needs a answer suggestion.
+    
+        This is the user's instruction or question:
+        """
+        ${userInstruction}
+        """
+
+        Please provide a recommended response based on the user's instruction or question, considering the context of the conversation, and preserving the user's line breaks and formatting if any.
+
+        IMPORTANT: The suggested_answer you generate is intended for the user to respond to a previous conversation, not to reply to the user's current instruction or question.
+        `
+        const nextLevelMessages: Message[] = [
+            // 1. revise prompt with chat history, included in chat completion, but not displaying to users
+            new TextMessage('user', revisePrompt, false, true),
+            // 2. ai's json response, included in request but not displaying either
+            new TextMessage('assistant', revisedText, false, true),
+            // 3. the revised text, displaying but not included
+            new RecommendedRespMessage('assistant', revisedText, true, false)
+        ]
+        updateMessageListStack(draft => { draft.push(nextLevelMessages) })
+    }
+
+    return <div className={`flex flex-col flex-grow items-center rounded-lg ${className}`}>
+        {/* <div className={`self-start ml-[100px] font-bold text-xl pt-2 w-4/5 text-[#5f5f5f]`}>New Chat</div> */}
+        {isStacking &&
+            <div className="hover:bg-gray-200 cursor-pointer py-2 w-4/5 flex justify-center"
+                onClick={() => { updateMessageListStack(draft => { draft.pop() }); }}>
+                <IoIosArrowDown size={30} color="#5f5f5f" />
+            </div>}
         {/* <MessageList className="flex-grow overflow-y-auto" messageList={messageList} /> */}
-        <MessageList className="flex-initial overflow-auto w-4/5 h-full" messageList={messageList} />
+        <MessageList className="flex-initial overflow-auto w-4/5 h-full" messageList={currentMessageList} />
         {/* <MessageInput className="bottom-0" addMesssage={addMesssage} /> */}
-        <MessageInput className="w-4/5" addMesssage={addMesssage} messageList={messageList} />
+        <MessageInput className="w-4/5" addMesssage={addMesssage} messageList={currentMessageList}
+            state={inputState} setState={setInputState}
+            // Temporarily disallow nested multi-level discussions, the component has already supported, 
+            // it's just the AI might be unable to handle too many levels
+            allowFollowUpDiscussion={!isStacking}
+            startFollowUpDiscussion={startFollowUpDiscussion}
+        />
     </div>
 }
 
@@ -46,28 +117,21 @@ export interface MessageProps {
 }
 
 interface MessageListProps {
-    messageList: { role: string; content: string; }[];
+    messageList: Message[];
     className?: string;
 }
 
 export function MessageList({ messageList, className }: MessageListProps) {
     return <div className={`flex flex-col pb-5 ${className}`}>
-        {messageList.map((message, index) => (
-            <Message key={index} role={message.role} content={message.content}
-                className={"mb-5"} />
-        ))}
+        {messageList.
+            filter((msg) => msg.displayToUser).
+            map((message, index) => {
+                const Comp = message.render()
+                return <Comp key={index} className="mb-5" />
+            })}
     </div>
 }
 
-
-export function Message({ role, content, className }: MessageProps) {
-    return <>
-        <div className={`flex flex-col ${className}`}>
-            <Role className="mb-2" name={role} />
-            <MessageContent content={content} />
-        </div>
-    </>
-}
 
 export interface RoleProps {
     name: string;
@@ -112,8 +176,11 @@ async function reviseMessage(
     includeHistory: boolean = true,
     historyMessageCount: number | undefined = undefined
 ) {
+
     const historyContext = includeHistory ?
-        historyMessages.slice(-(historyMessageCount ?? historyMessages.length)).map(message => `[START]${message.role}: ${message.content}[END]`).join('\n') : ""
+        historyMessages.slice(-(historyMessageCount ?? historyMessages.length)).
+            filter((msg) => msg.includedInChatCompletion).
+            map(msg => `[START]${msg.role}: ${msg.toJSON().content}[END]`).join('\n') : ""
     const translatePrompt = `${includeHistory ? `This is an ongoing conversation:
     """
     ${historyContext}
@@ -142,21 +209,27 @@ async function reviseMessage(
     return revisedText
 }
 
-export function MessageInput({ messageList, addMesssage, className = "" }: {
+type MessageInputState =
+    | { type: 'normal', messageContent: string }
+    | { type: 'revising', messageContent: string, revisingIndex: number }
+    | { type: 'waitingApproval', messageContent: string, revisedText: string, revisingInstruction: string };
+
+export function MessageInput({
+    state: compState, setState: setCompState, messageList, addMesssage, allowFollowUpDiscussion, startFollowUpDiscussion, className = ""
+}: {
+    state: MessageInputState,
+    setState: Dispatch<SetStateAction<MessageInputState>>
     messageList: Message[],
     addMesssage: (message: { content: string, role?: string }) => void,
+    allowFollowUpDiscussion: boolean
+    startFollowUpDiscussion: (userInstruction: string, messageToRevise: string, revisedText: string) => void
     className?: string,
 }) {
-    type MessageInputState =
-        | { type: 'normal' }
-        | { type: 'revising', revisingIndex: number }
-        | { type: 'waitingApprovement', revisedText: string };
 
-    const [compState, setCompState] = useState<MessageInputState>({ type: 'normal' });
-    const [messageContent, setMessageContent] = useState("");
+    const messageContent = compState.messageContent
     const textAreaRef = useRef<HTMLTextAreaElement>(null)
     const isNormal = compState.type === 'normal'
-    const waitingForApprovement = compState.type === 'waitingApprovement'
+    const waitingForApproval = compState.type === 'waitingApproval'
 
     function handleSend() {
         if (!isNormal) {
@@ -164,35 +237,37 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
         }
         if (messageContent.trim() === "") return;
         addMesssage({ content: messageContent });
-        setMessageContent("");
+        setCompState({ type: 'normal', messageContent: '' })
     }
 
     async function startRevising(triggeredIndex: number) {
         if (!isNormal) {
             return
         }
-        setCompState({ type: 'revising', revisingIndex: triggeredIndex })
-        console.log(`setCompState({ type: 'revising', revisingIndex: triggeredIndex })`)
+        setCompState({ type: 'revising', revisingIndex: triggeredIndex, messageContent: compState.messageContent })
         const userInstruction = icons[triggeredIndex].userInstruction
         const revisedText = await reviseMessage(messageContent, userInstruction, messageList)
-        setCompState({ type: 'waitingApprovement', revisedText })
-        console.log(`setCompState({ type: 'waitingApprovement', revisedText })`)
+        setCompState({
+            type: 'waitingApproval',
+            revisedText: revisedText,
+            revisingInstruction: userInstruction,
+            messageContent: compState.messageContent
+        })
     }
 
     function approveRevision(revisedText: string) {
-        if (!waitingForApprovement) {
+        if (!waitingForApproval) {
             return
         }
-        setCompState({ type: 'normal' })
-        setMessageContent(revisedText)
+        setCompState({ type: 'normal', messageContent: revisedText })
         textAreaRef.current?.focus()
     }
 
     function rejectRevision() {
-        if (!waitingForApprovement) {
+        if (!waitingForApproval) {
             return
         }
-        setCompState({ type: 'normal' })
+        setCompState({ type: 'normal', messageContent: compState.messageContent })
         textAreaRef.current?.focus()
     }
 
@@ -241,16 +316,21 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
             // TODO 
             // 1. more appropriate max-width
             // 2. line wrapping for content
-            waitingForApprovement && <DiffView className={`absolute w-fit min-w-[700px] max-w-[1000px] bg-white`} style={{ bottom: `${calculateTextAreaHeight()}px` }}
-                originalText={messageContent} revisedText={compState.revisedText }
-                approveRevisionCallback={approveRevision} rejectRevisionCallback={rejectRevision} />
+            waitingForApproval && <DiffView className={`absolute w-fit min-w-[700px] max-w-[1000px] bg-white`} style={{ bottom: `${calculateTextAreaHeight()}px` }}
+                originalText={messageContent} revisedText={compState.revisedText} allowFollowUpDiscussion={allowFollowUpDiscussion}
+                approveRevisionCallback={approveRevision} rejectRevisionCallback={rejectRevision}
+                startFollowUpDiscussion={(messageToRevise: string, revisedText: string) => {
+                    setCompState({ type: 'normal', messageContent: '' })
+                    textAreaRef.current?.focus()
+                    startFollowUpDiscussion(compState.revisingInstruction, messageToRevise, revisedText)
+                }} />
         }
         {/* Input Box */}
         <textarea
             className="flex-1 p-4 resize-none focus:outline-none"
             ref={textAreaRef}
             placeholder={`Type your message here...\n\nPress Enter to send, Shift+Enter to add a new line`}
-            value={messageContent} onChange={(e) => setMessageContent(e.target.value)}
+            value={messageContent} onChange={(e) => setCompState({ type: 'normal', messageContent: e.target.value })}
             readOnly={!isNormal}
 
             onKeyDown={(e) => {
@@ -270,11 +350,13 @@ export function MessageInput({ messageList, addMesssage, className = "" }: {
 }
 
 export function DiffView(
-    { originalText, revisedText, approveRevisionCallback, rejectRevisionCallback, style, className = "" }: {
+    { originalText, revisedText, approveRevisionCallback, rejectRevisionCallback, allowFollowUpDiscussion, startFollowUpDiscussion, style, className = "" }: {
         originalText: string,
         revisedText: string,
+        allowFollowUpDiscussion: boolean
         approveRevisionCallback: (revisedText: string) => void,
         rejectRevisionCallback: () => void
+        startFollowUpDiscussion: (messageToRevise: string, revisedText: string) => void
         className?: string,
         style: object
     }
@@ -301,6 +383,7 @@ export function DiffView(
             }}>
             {changes.length > 0 && (
                 <div className="flex flex-col relative">
+                    {/* diff text */}
                     <div className="flex flex-wrap mb-4">
                         {changes.map((change, index) => (
                             <div key={index} className={`inline-block whitespace-pre-wrap break-words ${change.added ? 'bg-green-200' : change.removed ? 'bg-red-200 line-through text-gray-500' : ''}`}>
@@ -312,6 +395,7 @@ export function DiffView(
                             </div>
                         ))}
                     </div>
+                    {/* buttons */}
                     <div className="flex flex-row self-end">
                         <button className="mr-2 py-0 px-2 bg-gray-800 rounded-md text-[12px] text-white" onClick={() => { approveRevisionCallback(revisedText) }}>
                             <PiKeyReturnBold className="inline-block mr-1" color="white" /> Approve
@@ -319,6 +403,10 @@ export function DiffView(
                         <button className="mr-2 py-0 px-1 rounded-lg text-[15px] text-gray-500" onClick={rejectRevisionCallback}>
                             <FaBackspace className="inline-block mr-1" color="6b7280" /> Reject
                         </button>
+                        {allowFollowUpDiscussion && <button className="mr-2 py-0 px-1 rounded-lg text-[15px] text-gray-500"
+                            onClick={() => startFollowUpDiscussion(originalText, revisedText)}>
+                            <LiaComments className="inline-block mr-1" color="6b7280" /> Follow-up discussions
+                        </button>}
                     </div>
                 </div>
             )}

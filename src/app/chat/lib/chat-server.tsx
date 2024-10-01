@@ -1,10 +1,8 @@
 "use server"
 
-import { Message } from "./chat";
-
 // TODO reorganize the functions
 
-export async function chatCompletion(messageList: Message[]) {
+export async function chatCompletion(messageList: {role: string, content: string}[]) {
     'use server'
     const url = process.env.OPENAI_CHAT_COMPLETION_URL;
     if (!url) {
@@ -19,14 +17,14 @@ export async function chatCompletion(messageList: Message[]) {
         },
         body: JSON.stringify({
             model: "gpt-4o-mini",
-            messages: messageList,
+            messages: messageList
         }),
     });
     const data = await response.json();
     return data.choices[0].message.content;
 }
 
-export async function reviseMessageAction(message: Message) {
+export async function reviseMessageAction(message: { role: string, content: string }) {
     'use server'
     const url = process.env.OPENAI_CHAT_COMPLETION_URL;
     if (!url) {

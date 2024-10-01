@@ -6,6 +6,7 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import { FiMoreHorizontal } from "react-icons/fi";
 import { FaPlus } from "react-icons/fa";
+import { SystemMessage } from "./message";
 
 
 interface ChatSelectionListProps {
@@ -43,13 +44,13 @@ export function ChatSelectionList({ chatSelectionListLoader, className = "" }: C
 
 }
 
-export function NewChat({ addNewChat2, className = "" }: {
-    addNewChat2: AddNewChat, className?: string
+export function NewChat({ addNewChat: addNewChat2, className = "" }: {
+    addNewChat: AddNewChat, className?: string
 }) {
     const dispatch = useAppDispatch()
     const handleClick = () => {
         const chatSelection = addNewChat2("New Chat", [
-            { "role": "system", "content": "You're a helpful assistant." },
+            new SystemMessage("You're a helpful assistant.")
         ])
         dispatch(addNewChat(chatSelection.chatSelection))
     }
