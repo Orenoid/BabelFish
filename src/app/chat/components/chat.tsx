@@ -7,9 +7,8 @@ import { chatCompletion, reviseMessageAction } from "../lib/chat-server";
 import { TbPencilQuestion } from "react-icons/tb";
 import { diffChars } from "diff";
 import { PiKeyReturnBold } from "react-icons/pi";
-import { FaBackspace } from "react-icons/fa";
+import { FaBackspace, FaSpellCheck } from "react-icons/fa";
 import { Oval } from "react-loader-spinner";
-import { LuSpellCheck2 } from "react-icons/lu";
 import { useImmer } from "use-immer";
 import { type Message } from "../lib/message";
 import { RecommendedRespMessage, TextMessage } from "./message";
@@ -282,7 +281,7 @@ export function MessageInput({
             shortcutCallback: (e: React.KeyboardEvent<HTMLTextAreaElement>) => e.key === '/' && (e.metaKey || e.ctrlKey)
         },
         {
-            iconNode: <LuSpellCheck2 size={21} className="ml-[-2px]" />, userInstruction: "Correct grammar issue",
+            iconNode: <FaSpellCheck size={20} className="ml-[-2px]" />, userInstruction: "Correct grammar issue",
             shortcutCallback: (e: React.KeyboardEvent<HTMLTextAreaElement>) => e.key === 'g' && (e.metaKey || e.ctrlKey)
         }
     ]

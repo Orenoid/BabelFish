@@ -1,11 +1,11 @@
 "use client"
 
-import { PiKeyReturnBold } from "react-icons/pi";
 // messasge types: 
 // systemMessage, text, audio, suggested_answer(apply callback)
 
 import { Message } from "../lib/message";
 import { MessageContent, Role } from "./chat";
+import { CgChevronDoubleDown } from "react-icons/cg";
 
 export class SystemMessage extends Message {
 
@@ -74,7 +74,7 @@ export class RecommendedRespMessage extends Message {
                         <div dangerouslySetInnerHTML={{ __html: this.recommendedContent.replace(/\n/g, '<br />') }} />
                         <div className="flex flex-row self-end">
                         <button className="mr-2 py-0 px-2 bg-gray-800 rounded-md text-[15px] text-white" >
-                            <PiKeyReturnBold className="inline-block mr-1" color="white" /> Apply
+                            <CgChevronDoubleDown className="inline-block mr-1" color="white" /> Apply
                         </button>
                     </div>
                     </div>
