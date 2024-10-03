@@ -7,6 +7,7 @@ import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import { FiMoreHorizontal } from "react-icons/fi";
 import { FaPlus } from "react-icons/fa";
 import { SystemMessage } from "./message";
+import { MdModeEdit } from "react-icons/md";
 
 
 interface ChatSelectionListProps {
@@ -95,7 +96,7 @@ export function ChatSelection({ id: chatID, title, className = "", selected = fa
                         <>
                             <div className="flex flex-row justify-between">
                                 <span>{title}</span>
-                                <div className="hover:bg-gray-300 rounded-full p-1"
+                                <div className={`hover:bg-gray-300 rounded-full p-1 ${showMore && "bg-gray-300"}`}
                                     onClick={(e: React.MouseEvent<HTMLDivElement>) => {
                                         e.stopPropagation()
                                         setCompState({ type: 'showMore' })
@@ -130,8 +131,8 @@ export function ChatSelection({ id: chatID, title, className = "", selected = fa
                 showMore && <>
                     <div className="absolute right-0 z-10 bg-white border rounded-md">
                         {/* Dropdown menu items can be added here */}
-                        <div className="p-2 cursor-pointer" onClick={() => setCompState({ type: 'titleUnderEdit', titleUnderEdit: title })}>
-                            Edit Title
+                        <div className="p-2 cursor-pointer hover:bg-gray-100" onClick={() => setCompState({ type: 'titleUnderEdit', titleUnderEdit: title })}>
+                            <MdModeEdit className="inline-block mr-1" /> Rename
                         </div>
                     </div>
                     <div className="fixed inset-0 bg-white opacity-0"
