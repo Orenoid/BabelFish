@@ -7,7 +7,7 @@ import { useState } from "react";
 import { Message } from "../lib/message";
 import { MessageContent, Role } from "./chat";
 import { CgChevronDoubleDown } from "react-icons/cg";
-import { MdEdit } from "react-icons/md";
+import { TbPencil } from "react-icons/tb";
 
 // TODO message types constants declaration
 // export const MessageType = {
@@ -27,7 +27,7 @@ import { MdEdit } from "react-icons/md";
 type systemMessgeState =
     | { type: 'normal', showMore: boolean, content: string }
     | { type: 'folded', showMore: boolean, content: string }
-    | { type: 'editing', editingContent: string }
+    | { type: 'editing', editingContent: string, originalContent: string }
 export class SystemMessage extends Message {
 
     private _systemPrompt: string
@@ -56,13 +56,19 @@ export class SystemMessage extends Message {
                 if (compState.type === 'editing') {
                     return
                 }
-                setCompState({ type: 'editing', editingContent: compState.content })
+                setCompState({ type: 'editing', editingContent: compState.content, originalContent: compState.content })
             }
-            function toNormalState() {
+            function saveEdit() {
                 if (compState.type !== 'editing') {
                     return
                 }
                 setCompState({ type: 'normal', showMore: false, content: compState.editingContent })
+            }
+            function cancelEdit() {
+                if (compState.type !== 'editing') {
+                    return
+                }
+                setCompState({ type: 'normal', showMore: false, content: compState.originalContent })
             }
 
             return <div className={`flex flex-col ${className}`}
@@ -70,24 +76,33 @@ export class SystemMessage extends Message {
                 <Role className="mb-2" name={this.role} />
                 {!isEditing && <MessageContent content={compState.content} />}
                 {isEditing &&
-                    <div>
-                        <textarea className="w-full h-32"
-                            value={compState.editingContent} onChange={(e) => { setCompState({ type: 'editing', editingContent: e.target.value }) }
+                    <div className="bg-[#F6F5F5] rounded-lg max-w-[80%] p-4">
+                        <textarea className="w-full bg-[#F6F5F5] h-32 resize-none focus:outline-none"
+                            value={compState.editingContent} onChange={(e) => { setCompState({ type: 'editing', editingContent: e.target.value, originalContent: compState.originalContent }) }
                             } />
-                        <button onClick={() => {
-                            this._systemPrompt = compState.editingContent
-                            updateMessage(this) // TODO error handling
-                            toNormalState()
-                        }}>Save</button>
+                        <div className="flex flex-row">
+                            <button className="rounded-2xl border border-gray-300 bg-white p-2 mr-2"
+                                onClick={() => {
+                                    cancelEdit()
+                                }}>
+                                Cancel
+                            </button>
+                            <button className="rounded-2xl bg-black text-white p-2"
+                                onClick={() => {
+                                    this._systemPrompt = compState.editingContent
+                                    updateMessage(this) // TODO error handling
+                                    saveEdit()
+                                }}>Save</button>
+
+                        </div>
+
                     </div>}
-                {/* TODO position absolute */}
-                {showMore &&
-                    <div className="flex flex-row h-5 ">
-                        <MdEdit onClick={() => {
+                <div className={`flex flex-row mt-1 pl-1 ${showMore ? 'visible' : 'invisible'}`}>
+                    <TbPencil className="cursor-pointer" size={20}
+                        onClick={() => {
                             toEditingState()
                         }} />
-                    </div>
-                }
+                </div>
             </div>
         }
         return Root
@@ -116,7 +131,7 @@ export class SystemMessage extends Message {
 
 type textMessageState =
     | { type: 'normal', showMore: boolean, content: string }
-    | { type: 'editing', editingContent: string }
+    | { type: 'editing', editingContent: string, originalContent: string }
 
 export class TextMessage extends Message {
     content: string
@@ -143,13 +158,19 @@ export class TextMessage extends Message {
                 if (compState.type === 'editing') {
                     return
                 }
-                setCompState({ type: 'editing', editingContent: compState.content })
+                setCompState({ type: 'editing', editingContent: compState.content, originalContent: compState.content })
             }
-            function toNormalState() {
+            function saveEdit() {
                 if (compState.type !== 'editing') {
                     return
                 }
                 setCompState({ type: 'normal', showMore: false, content: compState.editingContent })
+            }
+            function cancelEdit() {
+                if (compState.type !== 'editing') {
+                    return
+                }
+                setCompState({ type: 'normal', showMore: false, content: compState.originalContent })
             }
 
             return <div className={`flex flex-col ${className}`}
@@ -157,24 +178,32 @@ export class TextMessage extends Message {
                 <Role className="mb-2" name={this.role} />
                 {!isEditing && <MessageContent content={compState.content} />}
                 {isEditing &&
-                    <div>
-                        <textarea className="w-full h-32"
-                            value={compState.editingContent} onChange={(e) => { setCompState({ type: 'editing', editingContent: e.target.value }) }
+                    <div className="bg-[#F6F5F5] rounded-lg max-w-[80%] p-4">
+                        <textarea className="w-full bg-[#F6F5F5] h-32 resize-none focus:outline-none"
+                            value={compState.editingContent} onChange={(e) => { setCompState({ type: 'editing', editingContent: e.target.value, originalContent: compState.originalContent }) }
                             } />
-                        <button onClick={() => {
-                            this.content = compState.editingContent
-                            updateMessage(this) // TODO error handling
-                            toNormalState()
-                        }}>Save</button>
+                        <div className="flex flex-row">
+                            <button className="rounded-2xl border border-gray-300 bg-white p-2 mr-2"
+                                onClick={() => {
+                                    cancelEdit()
+                                }}>
+                                Cancel
+                            </button>
+                            <button className="rounded-2xl bg-black text-white p-2"
+                                onClick={() => {
+                                    this.content = compState.editingContent
+                                    updateMessage(this) // TODO error handling
+                                    saveEdit()
+                                }}>Save</button>
+
+                        </div>
                     </div>}
-                {/* TODO position absolute */}
-                {showMore &&
-                    <div className="flex flex-row h-5 ">
-                        <MdEdit onClick={() => {
+                <div className={`flex flex-row mt-1 pl-1 ${showMore ? 'visible' : 'invisible'}`}>
+                    <TbPencil className="cursor-pointer" size={20}
+                        onClick={() => {
                             toEditingState()
                         }} />
-                    </div>
-                }
+                </div>
             </div>
         }
         return Root
