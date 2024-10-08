@@ -23,7 +23,7 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
     // compState: normal, stacking
     const [messageListStack, updateMessageListStack] = useImmer<Message[][]>([])
     const [inputState, setInputState] = useState<MessageInputState>({ type: 'normal', messageContent: '' })
-    const isStacking = messageListStack.length > 1
+    const isTopLevel = messageListStack.length <= 1
     const currentMessageList = messageListStack.length > 0 ? messageListStack[messageListStack.length - 1] : []
 
     useEffect(() => {
@@ -34,7 +34,7 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
 
     async function addMesssage({ content, role = "user" }: { content: string, role?: string }) {
         const newInpuMessage = new TextMessage(role, content)
-        if (!isStacking) {
+        if (isTopLevel) {
             AddMesssageInChat(chatID, newInpuMessage)
         }
         updateMessageListStack(draft => {
@@ -46,7 +46,7 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
                 filter((msg) => msg.includedInChatCompletion).
                 map((msg) => (msg.toJSON() as { role: string, content: string }))
         )
-        if (!isStacking) {
+        if (isTopLevel) {
             AddMesssageInChat(chatID, new TextMessage('assistant', answer))
         }
         updateMessageListStack(draft => {
@@ -54,7 +54,7 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
         })
     }
     async function updateMessage(messageID: number, newMessage: Message) {
-        if (isStacking) {
+        if (!isTopLevel) {
             // only persist top-level messages
             return
         }
@@ -99,7 +99,7 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
 
     return <div className={`flex flex-col flex-grow items-center rounded-lg ${className}`}>
         {/* <div className={`self-start ml-[100px] font-bold text-xl pt-2 w-4/5 text-[#5f5f5f]`}>New Chat</div> */}
-        {isStacking &&
+        {!isTopLevel &&
             <div className="hover:bg-gray-200 cursor-pointer py-2 w-4/5 flex justify-center"
                 onClick={() => { updateMessageListStack(draft => { draft.pop() }); }}>
                 <IoIosArrowDown size={30} color="#5f5f5f" />
@@ -111,7 +111,7 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
             state={inputState} setState={setInputState}
             // Temporarily disallow nested multi-level discussions, the component has already supported, 
             // it's just the AI might be unable to handle too many levels
-            allowFollowUpDiscussion={!isStacking}
+            allowFollowUpDiscussion={isTopLevel}
             startFollowUpDiscussion={startFollowUpDiscussion}
         />
     </div>
