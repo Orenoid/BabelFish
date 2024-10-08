@@ -22,11 +22,6 @@ export function LoadChatSelectionListFromLocalStorage(): {
     };
 }
 
-interface RawMessage {
-    role: string
-    content: string
-}
-
 export function LoadChatByIDFromLocalStorage(chatID: string): Message[] {
     // 从 localStorage 根据 chatID 读取消息列表
     const messageListJSON = localStorage.getItem(`chat_${chatID}`);
@@ -36,18 +31,42 @@ export function LoadChatByIDFromLocalStorage(chatID: string): Message[] {
         return [];
     }
 
-    const rawMessages: RawMessage[] = JSON.parse(messageListJSON)
+    const rawMessages: string[] = JSON.parse(messageListJSON)
+    // TODO set up a global hub to manage message constructors
     const messageList: Message[] = rawMessages.map((rawMsg) => {
-        if (rawMsg.role === 'system') {
-            return new SystemMessage(rawMsg.content)
+        const { type, ...rest } = JSON.parse(rawMsg);
+        switch (type) {
+            case 'systemMessage':
+                return SystemMessage.deserialize(JSON.stringify(rest));
+            case 'text':
+                return TextMessage.deserialize(JSON.stringify(rest));
+            default:
+                throw new Error(`Unknown message type: ${type}`);
         }
-        return new TextMessage(rawMsg.role, rawMsg.content)
-    })
+    });
 
-    return messageList
+    return messageList;
 }
 
-// TODO
+export function UpdateMessageInChat(chatID: string, messageID: number, serialized: string): void {
+    // 从 localStorage 读取现有的消息列表
+    const messageListJSON = localStorage.getItem(`chat_${chatID}`);
+    const messageList: string[] = messageListJSON ? JSON.parse(messageListJSON) : [];
+
+    // 检查消息ID是否存在
+    if (messageID < 0 || messageID >= messageList.length) {
+        console.error("Invalid message ID");
+        return;
+    }
+
+    // 更新消息
+    messageList[messageID] = serialized;
+
+    // 更新 localStorage 中的消息列表
+    localStorage.setItem(`chat_${chatID}`, JSON.stringify(messageList));
+}
+
+
 export function AddNewChat(
     chatTitle: string = "New Chat",
     initialMessageList: Message[] = []
@@ -71,7 +90,7 @@ export function AddNewChat(
     localStorage.setItem('chatSelectionList', JSON.stringify(chatSelectionList));
 
     // 将初始消息列表保存到 localStorage 中
-    localStorage.setItem(`chat_${newChatID}`, JSON.stringify(initialMessageList.filter((msg) => (msg.toJSON() !== null)).map((msg) => msg.toJSON())));
+    localStorage.setItem(`chat_${newChatID}`, JSON.stringify(initialMessageList.map((msg) => msg.serialize())));
 
     return {
         chatSelection: newChatSelection
@@ -79,15 +98,15 @@ export function AddNewChat(
 }
 
 export function AddMesssageInChat(chatID: string, message: Message): void {
-    if (message.toJSON() === null) {
+    if (message.serialize() === "") {
         return
     }
     // 从 localStorage 读取现有的消息列表
     const messageListJSON = localStorage.getItem(`chat_${chatID}`);
-    const messageList: RawMessage[] = messageListJSON ? JSON.parse(messageListJSON) : [];
+    const messageList: string[] = messageListJSON ? JSON.parse(messageListJSON) : [];
 
     // 将新的消息添加到消息列表中
-    messageList.push(message.toJSON() as RawMessage);
+    messageList.push(message.serialize());
 
     // 更新 localStorage 中的消息列表
     localStorage.setItem(`chat_${chatID}`, JSON.stringify(messageList));

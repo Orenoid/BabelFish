@@ -1,51 +1,180 @@
 "use client"
 
+import { useState } from "react";
 // messasge types: 
 // systemMessage, text, audio, suggested_answer(apply callback)
 
 import { Message } from "../lib/message";
 import { MessageContent, Role } from "./chat";
 import { CgChevronDoubleDown } from "react-icons/cg";
+import { MdEdit } from "react-icons/md";
 
+// TODO message types constants declaration
+// export const MessageType = {
+//     SYSTEM: 'systemMessage',
+//     TEXT: 'text',
+//     AUDIO: 'audio',
+//     SUGGESTED_ANSWER: 'suggested_answer'
+// } as const;
+
+// export const RoleType = {
+//     SYSTEM: 'system',
+//     USER: 'user',
+//     ASSISTANT: 'assistant'
+// } as const;
+
+
+type systemMessgeState =
+    | { type: 'normal', showMore: boolean, content: string }
+    | { type: 'folded', showMore: boolean, content: string }
+    | { type: 'editing', editingContent: string }
 export class SystemMessage extends Message {
 
-    systemPrompt: string
-    _fold: boolean
+    private _systemPrompt: string
+    private _fold: boolean
 
-    constructor(systemPrompt: string, fold: boolean = true, displayToUser: boolean = true, includedInChatCompletion: boolean = true, className: string = "") {
-        super('systemMessage', 'system', displayToUser, includedInChatCompletion, className)
-        this.systemPrompt = systemPrompt
+    constructor(systemPrompt: string, fold: boolean = true, displayToUser: boolean = true, includedInChatCompletion: boolean = true) {
+        super('systemMessage', 'system', displayToUser, includedInChatCompletion)
+        this._systemPrompt = systemPrompt
         this._fold = fold
     }
 
     render() {
-        const Root = ({ className }: { className?: string }) => {
-            return <div className={`flex flex-col ${className}`}>
+        const Root = ({ updateMessage, className }: { updateMessage: (message: Message) => void, className?: string }) => {
+            const [compState, setCompState] = useState<systemMessgeState>({ type: 'normal', showMore: false, content: this._systemPrompt })
+            const showMore = (compState.type !== 'editing' && compState.showMore)
+            const isEditing = (compState.type === 'editing')
+
+            // state convertors
+            function toggleShowMore(): void {
+                if (compState.type === 'editing') {
+                    return
+                }
+                setCompState({ type: compState.type, showMore: !compState.showMore, content: compState.content })
+            }
+            const toEditingState = () => {
+                if (compState.type === 'editing') {
+                    return
+                }
+                setCompState({ type: 'editing', editingContent: compState.content })
+            }
+            function toNormalState() {
+                if (compState.type !== 'editing') {
+                    return
+                }
+                setCompState({ type: 'normal', showMore: false, content: compState.editingContent })
+            }
+
+            return <div className={`flex flex-col ${className}`}
+                onMouseEnter={toggleShowMore} onMouseLeave={toggleShowMore}>
                 <Role className="mb-2" name={this.role} />
-                <MessageContent content={this.systemPrompt} />
+                {!isEditing && <MessageContent content={compState.content} />}
+                {isEditing &&
+                    <div>
+                        <textarea className="w-full h-32"
+                            value={compState.editingContent} onChange={(e) => { setCompState({ type: 'editing', editingContent: e.target.value }) }
+                            } />
+                        <button onClick={() => {
+                            this._systemPrompt = compState.editingContent
+                            updateMessage(this) // TODO error handling
+                            toNormalState()
+                        }}>Save</button>
+                    </div>}
+                {/* TODO position absolute */}
+                {showMore &&
+                    <div className="flex flex-row h-5 ">
+                        <MdEdit onClick={() => {
+                            toEditingState()
+                        }} />
+                    </div>
+                }
             </div>
         }
         return Root
     }
 
     toJSON(): { role: string, content: string } {
-        return { role: 'system', content: this.systemPrompt }
+        return { role: 'system', content: this._systemPrompt }
+    }
+
+    serialize(): string {
+        return JSON.stringify({
+            type: this.type,
+            systemPrompt: this._systemPrompt,
+            fold: this._fold,
+            displayToUser: this.displayToUser,
+            includedInChatCompletion: this.includedInChatCompletion,
+        })
+    }
+
+    static deserialize(serialized: string): SystemMessage {
+        const { systemPrompt, fold, displayToUser, includedInChatCompletion } = JSON.parse(serialized)
+        return new SystemMessage(systemPrompt, fold, displayToUser, includedInChatCompletion)
     }
 }
+
+
+type textMessageState =
+    | { type: 'normal', showMore: boolean, content: string }
+    | { type: 'editing', editingContent: string }
 
 export class TextMessage extends Message {
     content: string
 
-    constructor(role: string, content: string, displayToUser: boolean = true, includedInChatCompletion: boolean = true, className: string = "") {
-        super('text', role, displayToUser, includedInChatCompletion, className)
+    constructor(role: string, content: string, displayToUser: boolean = true, includedInChatCompletion: boolean = true) {
+        super('text', role, displayToUser, includedInChatCompletion)
         this.content = content
     }
 
     render() {
-        const Root = ({ className }: { className?: string }) => {
-            return <div className={`flex flex-col ${className}`}>
+        const Root = ({ updateMessage, className }: { updateMessage: (message: Message) => void, className?: string }) => {
+            const [compState, setCompState] = useState<textMessageState>({ type: 'normal', showMore: false, content: this.content })
+            const showMore = (compState.type !== 'editing' && compState.showMore)
+            const isEditing = (compState.type === 'editing')
+
+            // state convertors
+            function toggleShowMore(): void {
+                if (compState.type === 'editing') {
+                    return
+                }
+                setCompState({ type: compState.type, showMore: !compState.showMore, content: compState.content })
+            }
+            const toEditingState = () => {
+                if (compState.type === 'editing') {
+                    return
+                }
+                setCompState({ type: 'editing', editingContent: compState.content })
+            }
+            function toNormalState() {
+                if (compState.type !== 'editing') {
+                    return
+                }
+                setCompState({ type: 'normal', showMore: false, content: compState.editingContent })
+            }
+
+            return <div className={`flex flex-col ${className}`}
+                onMouseEnter={toggleShowMore} onMouseLeave={toggleShowMore}>
                 <Role className="mb-2" name={this.role} />
-                <MessageContent content={this.content} />
+                {!isEditing && <MessageContent content={compState.content} />}
+                {isEditing &&
+                    <div>
+                        <textarea className="w-full h-32"
+                            value={compState.editingContent} onChange={(e) => { setCompState({ type: 'editing', editingContent: e.target.value }) }
+                            } />
+                        <button onClick={() => {
+                            this.content = compState.editingContent
+                            updateMessage(this) // TODO error handling
+                            toNormalState()
+                        }}>Save</button>
+                    </div>}
+                {/* TODO position absolute */}
+                {showMore &&
+                    <div className="flex flex-row h-5 ">
+                        <MdEdit onClick={() => {
+                            toEditingState()
+                        }} />
+                    </div>
+                }
             </div>
         }
         return Root
@@ -54,13 +183,29 @@ export class TextMessage extends Message {
     toJSON(): { role: string, content: string } {
         return { role: this.role, content: this.content }
     }
+
+    serialize(): string {
+        return JSON.stringify({
+            type: this.type,
+            role: this.role,
+            content: this.content,
+            displayToUser: this.displayToUser,
+            includedInChatCompletion: this.includedInChatCompletion,
+        });
+    }
+
+    static deserialize(serialized: string): TextMessage {
+        const { role, content, displayToUser, includedInChatCompletion } = JSON.parse(serialized);
+        return new TextMessage(role, content, displayToUser, includedInChatCompletion);
+    }
+
 }
 
 export class RecommendedRespMessage extends Message {
     recommendedContent: string
 
-    constructor(role: string, recommendedContent: string, displayToUser: boolean = true, includedInChatCompletion: boolean = true, className: string = "") {
-        super('recommendedResponse', role, displayToUser, includedInChatCompletion, className)
+    constructor(role: string, recommendedContent: string, displayToUser: boolean = true, includedInChatCompletion: boolean = true) {
+        super('recommendedResponse', role, displayToUser, includedInChatCompletion)
         this.recommendedContent = recommendedContent
     }
 
@@ -73,10 +218,10 @@ export class RecommendedRespMessage extends Message {
                     <div className="flex flex-col p-3 m-4 ml-0 bg-white shadow-sm border-2 rounded-md">
                         <div dangerouslySetInnerHTML={{ __html: this.recommendedContent.replace(/\n/g, '<br />') }} />
                         <div className="flex flex-row self-end">
-                        <button className="mr-2 py-0 px-2 bg-gray-800 rounded-md text-[15px] text-white" >
-                            <CgChevronDoubleDown className="inline-block mr-1" color="white" /> Apply
-                        </button>
-                    </div>
+                            <button className="mr-2 py-0 px-2 bg-gray-800 rounded-md text-[15px] text-white" >
+                                <CgChevronDoubleDown className="inline-block mr-1" color="white" /> Apply
+                            </button>
+                        </div>
                     </div>
 
                     <div className="">{`If you have any more questions, feel free to continue the discussion with me.`}</div>
@@ -95,5 +240,20 @@ export class RecommendedRespMessage extends Message {
 
     toJSON(): { role: string, content: string } {
         return { role: this.role, content: this.recommendedContent }
+    }
+
+    serialize(): string {
+        return JSON.stringify({
+            type: this.type,
+            role: this.role,
+            recommendedContent: this.recommendedContent,
+            displayToUser: this.displayToUser,
+            includedInChatCompletion: this.includedInChatCompletion
+        });
+    }
+
+    static deserialize(serialized: string): RecommendedRespMessage {
+        const { role, recommendedContent, displayToUser, includedInChatCompletion } = JSON.parse(serialized);
+        return new RecommendedRespMessage(role, recommendedContent, displayToUser, includedInChatCompletion);
     }
 }
