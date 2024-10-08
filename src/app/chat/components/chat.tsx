@@ -1,7 +1,7 @@
 "use client";
 
 import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
-import { AddMesssageInChat, ChatLoader } from "../lib/chat"; // Changed to type-only import
+import { AddMesssageInChat, ChatLoader, UpdateMessageInChat as updateMessageInChat } from "../lib/chat"; // Changed to type-only import
 import { MdGTranslate } from "react-icons/md";
 import { chatCompletion, reviseMessageAction } from "../lib/chat-server";
 import { TbPencilQuestion } from "react-icons/tb";
@@ -53,6 +53,14 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
             draft[draft.length - 1].push(new TextMessage('assistant', answer))
         })
     }
+    async function updateMessage(messageID: number, newMessage: Message) {
+        if (isStacking) {
+            // only persist top-level messages
+            return
+        }
+        const serialized = newMessage.serialize()
+        updateMessageInChat(chatID, messageID, serialized)
+    }
 
     function startFollowUpDiscussion(userInstruction: string, messageToRevise: string, revisedText: string) {
         const historyContext = true ?
@@ -97,7 +105,7 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
                 <IoIosArrowDown size={30} color="#5f5f5f" />
             </div>}
         {/* <MessageList className="flex-grow overflow-y-auto" messageList={messageList} /> */}
-        <MessageList className="flex-initial overflow-auto w-4/5 h-full" messageList={currentMessageList} />
+        <MessageList className="flex-initial overflow-auto w-4/5 h-full" messageList={currentMessageList} updateMessage={updateMessage} />
         {/* <MessageInput className="bottom-0" addMesssage={addMesssage} /> */}
         <MessageInput className="w-4/5" addMesssage={addMesssage} messageList={currentMessageList}
             state={inputState} setState={setInputState}
@@ -109,36 +117,31 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
     </div>
 }
 
-export interface MessageProps {
-    role: string;
-    content: string;
-    className?: string;
-}
-
-interface MessageListProps {
-    messageList: Message[];
-    className?: string;
-}
-
-export function MessageList({ messageList, className }: MessageListProps) {
+export function MessageList({ messageList, updateMessage, className }: {
+    messageList: Message[]
+    updateMessage: (messageID: number, newMessage: Message) => void,
+    className?: string
+}) {
     return <div className={`flex flex-col pb-5 ${className}`}>
         {messageList.
             filter((msg) => msg.displayToUser).
             map((message, index) => {
+                const messageID = index
                 const Comp = message.render()
-                return <Comp key={index} className="mb-5" />
+                return <Comp key={index} className="mb-5"
+                    updateMessage={(message: Message) => {
+                        updateMessage(messageID, message)
+                    }} />
             })}
     </div>
 }
 
 
-export interface RoleProps {
+export function Role({ name, className }: {
     name: string;
     className?: string;
     avatarUrl?: string;
-}
-
-export function Role({ name, className }: RoleProps) {
+}) {
     return (
         <div className={`flex items-center p-1 ${className}`}>
             <span className="font-semibold">{name}</span>
@@ -146,12 +149,10 @@ export function Role({ name, className }: RoleProps) {
     );
 }
 
-export interface MessageContentProps {
+export function MessageContent({ content, className = "" }: {
     content: string;
     className?: string;
-}
-
-export function MessageContent({ content, className = "" }: MessageContentProps) {
+}) {
     return (
         <div className={`bg-[#F6F5F5] rounded-lg w-fit max-w-[80%] p-2 ${className}`}>
             <div dangerouslySetInnerHTML={{ __html: content.replace(/\n/g, '<br />') }} />
