@@ -14,6 +14,7 @@ import { type Message } from "../lib/message";
 import { RecommendedRespMessage, TextMessage } from "./message";
 import { LiaComments } from "react-icons/lia";
 import { IoIosArrowDown } from "react-icons/io";
+import { LuUserCog2 } from "react-icons/lu";
 
 export function Chat({ chatID, loadChatByID, className = "" }: {
     chatID: string,
@@ -32,27 +33,40 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
         setInputState({ type: 'normal', messageContent: '' })
     }, [chatID, loadChatByID, updateMessageListStack])
 
-    async function addMesssage({ content, role = "user" }: { content: string, role?: string }) {
-        const newInpuMessage = new TextMessage(role, content)
+    const messageAddedCallbacks: (({ }: { messageList: Message[], opts?: messageAddedCallbackOptions }) => void)[] = [
+        // generate assistant message
+        async ({ messageList, opts = { generateAssistantMsg: true } }: { messageList: Message[], opts?: messageAddedCallbackOptions }) => {
+            if (!opts.generateAssistantMsg) return
+            // only generate assistant message if the last message is from the user
+            // TODO reference 'user' role constant instead
+            if (messageList.length === 0 || messageList[messageList.length - 1].role !== 'user') return
+            const answer = await chatCompletion(
+                messageList.filter((msg) => msg.includedInChatCompletion).
+                    map((msg) => (msg.toJSON() as { role: string, content: string }))
+            )
+            if (isTopLevel) {
+                AddMesssageInChat(chatID, new TextMessage('assistant', answer))
+            }
+            updateMessageListStack(draft => {
+                draft[draft.length - 1].push(new TextMessage('assistant', answer))
+            })
+        }
+        // TODO rename chat based on messages while the number of messages is greater than 1
+
+    ]
+
+    async function addMesssage(newMessage: Message, callbackOpts?: messageAddedCallbackOptions) {
         if (isTopLevel) {
-            AddMesssageInChat(chatID, newInpuMessage)
+            AddMesssageInChat(chatID, newMessage)
         }
         updateMessageListStack(draft => {
-            draft[draft.length - 1].push(newInpuMessage)
+            draft[draft.length - 1].push(newMessage)
         })
-        // TODO consider how to trigger chat completion, note that in the future, we need to support adding messages without triggering chat completion
-        const answer = await chatCompletion(
-            [...currentMessageList, newInpuMessage].
-                filter((msg) => msg.includedInChatCompletion).
-                map((msg) => (msg.toJSON() as { role: string, content: string }))
-        )
-        if (isTopLevel) {
-            AddMesssageInChat(chatID, new TextMessage('assistant', answer))
+        for (const callback of messageAddedCallbacks) {
+            callback({ messageList: [...currentMessageList, newMessage], opts: callbackOpts });
         }
-        updateMessageListStack(draft => {
-            draft[draft.length - 1].push(new TextMessage('assistant', answer))
-        })
     }
+
     async function updateMessage(messageID: number, newMessage: Message) {
         if (!isTopLevel) {
             // only persist top-level messages
@@ -98,23 +112,30 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
     }
 
     return <div className={`flex flex-col flex-grow items-center rounded-lg ${className}`}>
+        {/* Chat title */}
         {/* <div className={`self-start ml-[100px] font-bold text-xl pt-2 w-4/5 text-[#5f5f5f]`}>New Chat</div> */}
+
+        {/* button for jumping back to top level while in follow-up discussions */}
         {!isTopLevel &&
             <div className="hover:bg-gray-200 cursor-pointer py-2 w-4/5 flex justify-center"
                 onClick={() => { updateMessageListStack(draft => { draft.pop() }); }}>
                 <IoIosArrowDown size={30} color="#5f5f5f" />
             </div>}
-        {/* <MessageList className="flex-grow overflow-y-auto" messageList={messageList} /> */}
+
         <MessageList className="flex-initial overflow-auto w-4/5 h-full" messageList={currentMessageList} updateMessage={updateMessage} />
-        {/* <MessageInput className="bottom-0" addMesssage={addMesssage} /> */}
+
         <MessageInput className="w-4/5" addMesssage={addMesssage} messageList={currentMessageList}
             state={inputState} setState={setInputState}
-            // Temporarily disallow nested multi-level discussions, the component has already supported, 
+            // Temporarily forbid nested multi-level discussions, the component has already supported, 
             // it's just the AI might be unable to handle too many levels
             allowFollowUpDiscussion={isTopLevel}
             startFollowUpDiscussion={startFollowUpDiscussion}
         />
     </div>
+}
+
+type messageAddedCallbackOptions = {
+    generateAssistantMsg?: boolean
 }
 
 export function MessageList({ messageList, updateMessage, className }: {
@@ -220,23 +241,24 @@ export function MessageInput({
     state: MessageInputState,
     setState: Dispatch<SetStateAction<MessageInputState>>
     messageList: Message[],
-    addMesssage: (message: { content: string, role?: string }) => void,
+    addMesssage: (message: Message, callbackOpts?: messageAddedCallbackOptions) => void,
     allowFollowUpDiscussion: boolean
     startFollowUpDiscussion: (userInstruction: string, messageToRevise: string, revisedText: string) => void
     className?: string,
 }) {
 
     const messageContent = compState.messageContent
+    const [role, setRole] = useState<'system' | 'user' | 'assistant'>('user')
     const textAreaRef = useRef<HTMLTextAreaElement>(null)
     const isNormal = compState.type === 'normal'
     const waitingForApproval = compState.type === 'waitingApproval'
 
-    function handleSend() {
+    function handleSend(callbackOpts: messageAddedCallbackOptions = { generateAssistantMsg: true }) {
         if (!isNormal) {
             return
         }
         if (messageContent.trim() === "") return;
-        addMesssage({ content: messageContent });
+        addMesssage(new TextMessage(role, messageContent), callbackOpts);
         setCompState({ type: 'normal', messageContent: '' })
     }
 
@@ -295,27 +317,46 @@ export function MessageInput({
         return 170 // by default
     }
 
+    const [showRoleMenu, setShowRoleMenu] = useState(false)
+
     return <div className={`flex flex-col relative border-t pt-4 pb-2 px-4 ${className}`}>
         {/* top bar */}
         <div className="flex flex-row px-4 mb-2">
-            {icons.map((icon, index) => {
-                if (compState.type === 'revising' && compState.revisingIndex === index) {
-                    return <div className="p-1 mr-1 w-[28px]" key={index}>
-                        <Oval height={17} width={17} color="#959595" secondaryColor="#959595" strokeWidth={4} strokeWidthSecondary={4} />
+            {/* top bar - current message role */}
+            <div className="flex flex-row p-1 px-3 mr-3 rounded-full hover:bg-gray-300 cursor-pointer" onClick={() => setShowRoleMenu(!showRoleMenu)}>
+                <LuUserCog2 className="mr-2" size={25} /> <span className="font-bold">{role}</span>
+                {showRoleMenu && (
+                    <div className="absolute mt-2 p-2 bg-white border border-gray-300 rounded shadow-lg">
+                        {/* Add role options here */}
+                        <div className="cursor-pointer hover:bg-gray-200 p-2" onClick={() => setRole('system')}>system</div>
+                        <div className="cursor-pointer hover:bg-gray-200 p-2" onClick={() => setRole('assistant')}>assistant</div>
+                        <div className="cursor-pointer hover:bg-gray-200 p-2" onClick={() => setRole('user')}>user</div>
                     </div>
-                }
-                return <div className="p-1 mr-1 w-[28px] bg-transparent hover:bg-gray-300 rounded" key={index}><button className="" key={index}
-                    onClick={() => {
-                        const ii = index
-                        startRevising(ii)
-                    }}>{icon.iconNode}
-                </button></div>
-            })}
+                )}
+            </div>
+            {/* top bar - revision icons */}
+            <div className="flex flex-row">
+                {icons.map((icon, index) => {
+                    // loading effect
+                    if (compState.type === 'revising' && compState.revisingIndex === index) {
+                        return <div className="p-1 mr-1 w-[28px]" key={index}>
+                            <Oval height={17} width={17} color="#959595" secondaryColor="#959595" strokeWidth={4} strokeWidthSecondary={4} />
+                        </div>
+                    }
+                    // icon
+                    return <div className="p-1 mr-1 w-[28px] bg-transparent hover:bg-gray-300 rounded" key={index}><button className="" key={index}
+                        onClick={() => {
+                            const ii = index
+                            startRevising(ii)
+                        }}>{icon.iconNode}
+                    </button></div>
+                })}
+            </div>
         </div>
+
+        {/* revision DiffView pop-up */}
         {
-            // TODO 
-            // 1. more appropriate max-width
-            // 2. line wrapping for content
+            // TODO 1. more appropriate max-width 2. line wrapping for content
             waitingForApproval && <DiffView className={`absolute w-fit min-w-[700px] max-w-[1000px] bg-white`} style={{ bottom: `${calculateTextAreaHeight()}px` }}
                 originalText={messageContent} revisedText={compState.revisedText} allowFollowUpDiscussion={allowFollowUpDiscussion}
                 approveRevisionCallback={approveRevision} rejectRevisionCallback={rejectRevision}
@@ -325,7 +366,7 @@ export function MessageInput({
                     startFollowUpDiscussion(compState.revisingInstruction, messageToRevise, revisedText)
                 }} />
         }
-        {/* Input Box */}
+        {/* input box */}
         <textarea
             className="flex-1 p-4 resize-none focus:outline-none"
             ref={textAreaRef}
@@ -339,11 +380,18 @@ export function MessageInput({
                         const ii = i
                         e.preventDefault();
                         startRevising(ii)
+                        return
                     }
                 });
+                if (e.key === 'Enter' && e.ctrlKey) {
+                    e.preventDefault();
+                    handleSend({ generateAssistantMsg: false })
+                    return
+                }
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     handleSend();
+                    return
                 }
             }} rows={4} />
     </div >
