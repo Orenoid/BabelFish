@@ -47,8 +47,6 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
                     messageList.filter((msg) => msg.includedInChatCompletion).map((msg) => (msg.toJSON()))
                 )
 
-                await new Promise(resolve => setTimeout(resolve, 3000));
-
                 for await (const value of readStreamableValue(status)) {
                     yield value ?? '' // no idea what it represents when the value is undefined
                 }
