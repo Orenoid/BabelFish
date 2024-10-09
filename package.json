@@ -9,7 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^0.0.66",
     "@reduxjs/toolkit": "^2.2.7",
+    "ai": "^3.4.9",
     "diff": "^7.0.0",
     "immer": "^10.1.1",
     "next": "14.2.12",

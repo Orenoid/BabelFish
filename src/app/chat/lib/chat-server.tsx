@@ -1,8 +1,36 @@
 "use server"
+import { createStreamableValue } from 'ai/rsc';
+import { convertToCoreMessages, streamText } from 'ai';
+import { createOpenAI } from '@ai-sdk/openai';
 
 // TODO reorganize the functions
 
-export async function chatCompletion(messageList: {role: string, content: string}[]) {
+export const chatCompletion = async (messageList: { role: string, content: string }[]) => {
+    const openai = createOpenAI({
+        baseURL: process.env.OPENAI_CHAT_COMPLETION_URL,
+        apiKey: process.env.OPENAI_API_KEY,
+    })
+
+    const result = streamText({
+        model: openai.chat('gpt-4o-mini'),
+        messages: convertToCoreMessages(messageList as {role: 'system' | 'user' | 'assistant', content: string}[]),
+    })
+
+    const streamableStatus = createStreamableValue<string>();
+    (async () => {
+        for await (const chunk of (await result).textStream) {
+            console.log(chunk);
+            streamableStatus.update(chunk);
+        }
+        streamableStatus.done();
+    })();
+
+    return {
+        status: streamableStatus.value,
+    };
+};
+
+export async function oldChatCompletion(messageList: { role: string, content: string }[]) {
     'use server'
     const url = process.env.OPENAI_CHAT_COMPLETION_URL;
     if (!url) {

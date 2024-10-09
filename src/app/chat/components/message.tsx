@@ -249,7 +249,7 @@ export class StreamingTextMessage extends Message {
 
             const [streamingContent, setStreamingContent] = useState<string>('');
             const [finished, setFinished] = useState<boolean>(this.finished)
-            const TextMsg = new TextMessage(this.role, streamingContent, this.displayToUser, this.includedInChatCompletion).render()
+            const TextMsg = new TextMessage(this.role, streamingContent, true, true).render()
 
             useEffect(() => {
                 const iterator = this.streamingGenerator[Symbol.asyncIterator]();
@@ -264,7 +264,7 @@ export class StreamingTextMessage extends Message {
                         chunk = iterator.next();
                         requestAnimationFrame(processChunk);
                     } else {
-                        updateMessage(new TextMessage(this.role, this.consumedChunks.join(''), this.displayToUser, this.includedInChatCompletion))
+                        updateMessage(new TextMessage(this.role, this.consumedChunks.join(''), true, true))
                         setFinished(true);
                     }
                 };

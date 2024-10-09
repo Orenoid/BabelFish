@@ -3,7 +3,7 @@
 import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
 import { AddMesssageInChat, ChatLoader, UpdateMessageInChat as updateMessageInChat } from "../lib/chat"; // Changed to type-only import
 import { MdGTranslate } from "react-icons/md";
-import { reviseMessageAction } from "../lib/chat-server";
+import { reviseMessageAction, chatCompletion } from "../lib/chat-server";
 import { TbPencilQuestion } from "react-icons/tb";
 import { diffChars } from "diff";
 import { PiKeyReturnBold } from "react-icons/pi";
@@ -15,6 +15,7 @@ import { RecommendedRespMessage, StreamingTextMessage, TextMessage } from "./mes
 import { LiaComments } from "react-icons/lia";
 import { IoIosArrowDown } from "react-icons/io";
 import { LuUserCog2 } from "react-icons/lu";
+import { readStreamableValue } from "ai/rsc";
 
 export function Chat({ chatID, loadChatByID, className = "" }: {
     chatID: string,
@@ -40,21 +41,16 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
             // only generate assistant message if the last message is from the user
             // TODO reference 'user' role constant instead
             if (messageList.length === 0 || messageList[messageList.length - 1].role !== 'user') return
-            
-            // const answer = await chatCompletion(
-            //     messageList.filter((msg) => msg.includedInChatCompletion).
-            //         map((msg) => (msg.toJSON() as { role: string, content: string }))
-            // )
 
             async function* genFunc() {
-                let num = 0
-                
+                const { status } = await chatCompletion(
+                    messageList.filter((msg) => msg.includedInChatCompletion).map((msg) => (msg.toJSON()))
+                )
+
                 await new Promise(resolve => setTimeout(resolve, 3000));
-                
-                while (num < 10) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    yield "hahaha\n"
-                    num++
+
+                for await (const value of readStreamableValue(status)) {
+                    yield value ?? '' // no idea what it represents when the value is undefined
                 }
                 return
             }
@@ -91,6 +87,9 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
         }
         const serialized = newMessage.serialize()
         updateMessageInChat(chatID, messageID, serialized)
+        updateMessageListStack(draft => {
+            draft[draft.length - 1][messageID] = newMessage
+        })
     }
 
     function startFollowUpDiscussion(userInstruction: string, messageToRevise: string, revisedText: string) {
