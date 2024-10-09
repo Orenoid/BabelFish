@@ -143,6 +143,10 @@ export function MessageList({ messageList, updateMessage, className }: {
     updateMessage: (messageID: number, newMessage: Message) => void,
     className?: string
 }) {
+    const messagesEndRef = useRef<HTMLDivElement>(null)
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, [messageList])
     return <div className={`flex flex-col pb-5 ${className}`}>
         {messageList.
             filter((msg) => msg.displayToUser).
@@ -154,6 +158,7 @@ export function MessageList({ messageList, updateMessage, className }: {
                         updateMessage(messageID, message)
                     }} />
             })}
+        <div ref={messagesEndRef} />
     </div>
 }
 
