@@ -3,7 +3,7 @@
 import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
 import { AddMesssageInChat, ChatLoader, UpdateMessageInChat as updateMessageInChat } from "../lib/chat"; // Changed to type-only import
 import { MdGTranslate } from "react-icons/md";
-import { chatCompletion, reviseMessageAction } from "../lib/chat-server";
+import { reviseMessageAction } from "../lib/chat-server";
 import { TbPencilQuestion } from "react-icons/tb";
 import { diffChars } from "diff";
 import { PiKeyReturnBold } from "react-icons/pi";
@@ -11,7 +11,7 @@ import { FaBackspace, FaSpellCheck } from "react-icons/fa";
 import { Oval } from "react-loader-spinner";
 import { useImmer } from "use-immer";
 import { type Message } from "../lib/message";
-import { RecommendedRespMessage, TextMessage } from "./message";
+import { RecommendedRespMessage, StreamingTextMessage, TextMessage } from "./message";
 import { LiaComments } from "react-icons/lia";
 import { IoIosArrowDown } from "react-icons/io";
 import { LuUserCog2 } from "react-icons/lu";
@@ -40,15 +40,32 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
             // only generate assistant message if the last message is from the user
             // TODO reference 'user' role constant instead
             if (messageList.length === 0 || messageList[messageList.length - 1].role !== 'user') return
-            const answer = await chatCompletion(
-                messageList.filter((msg) => msg.includedInChatCompletion).
-                    map((msg) => (msg.toJSON() as { role: string, content: string }))
-            )
+            
+            // const answer = await chatCompletion(
+            //     messageList.filter((msg) => msg.includedInChatCompletion).
+            //         map((msg) => (msg.toJSON() as { role: string, content: string }))
+            // )
+
+            async function* genFunc() {
+                let num = 0
+                
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                while (num < 10) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    yield "hahaha\n"
+                    num++
+                }
+                return
+            }
+            const gen = genFunc()
+
+            const streamingMsg = new StreamingTextMessage('assistant', gen)
             if (isTopLevel) {
-                AddMesssageInChat(chatID, new TextMessage('assistant', answer))
+                AddMesssageInChat(chatID, streamingMsg)
             }
             updateMessageListStack(draft => {
-                draft[draft.length - 1].push(new TextMessage('assistant', answer))
+                draft[draft.length - 1].push(streamingMsg)
             })
         }
         // TODO rename chat based on messages while the number of messages is greater than 1
