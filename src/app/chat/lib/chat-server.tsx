@@ -19,7 +19,6 @@ export const chatCompletion = async (messageList: { role: string, content: strin
     const streamableStatus = createStreamableValue<string>();
     (async () => {
         for await (const chunk of (await result).textStream) {
-            console.log(chunk);
             streamableStatus.update(chunk);
         }
         streamableStatus.done();

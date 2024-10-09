@@ -26,8 +26,8 @@ export abstract class Message {
     abstract serialize(): string
 
     // This method is responsible for deserializing the message object from a string format.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     static deserialize(serialized: string): Message {
-        console.log(serialized);
         throw new Error("Deserialization not implemented for this message type");
     }
 
