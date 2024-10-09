@@ -1,4 +1,4 @@
-import { SystemMessage, TextMessage } from "../components/message";
+import { StreamingTextMessage, SystemMessage, TextMessage } from "../components/message";
 import { Message } from "./message";
 
 export function LoadChatSelectionListFromLocalStorage(): {
@@ -40,6 +40,8 @@ export function LoadChatByIDFromLocalStorage(chatID: string): Message[] {
                 return SystemMessage.deserialize(JSON.stringify(rest));
             case 'text':
                 return TextMessage.deserialize(JSON.stringify(rest));
+            case 'streamingText':
+                return StreamingTextMessage.deserialize(JSON.stringify(rest));
             default:
                 throw new Error(`Unknown message type: ${type}`);
         }
