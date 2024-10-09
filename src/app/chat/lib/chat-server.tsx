@@ -7,7 +7,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 
 export const chatCompletion = async (messageList: { role: string, content: string }[]) => {
     const openai = createOpenAI({
-        baseURL: process.env.OPENAI_CHAT_COMPLETION_URL,
+        baseURL: process.env.OPENAI_BASE_URL,
         apiKey: process.env.OPENAI_API_KEY,
     })
 
@@ -28,28 +28,6 @@ export const chatCompletion = async (messageList: { role: string, content: strin
         status: streamableStatus.value,
     };
 };
-
-export async function oldChatCompletion(messageList: { role: string, content: string }[]) {
-    'use server'
-    const url = process.env.OPENAI_CHAT_COMPLETION_URL;
-    if (!url) {
-        console.error('API URL is not defined');
-        return;
-    }
-    const response = await fetch(url, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + process.env.OPENAI_API_KEY,
-        },
-        body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: messageList
-        }),
-    });
-    const data = await response.json();
-    return data.choices[0].message.content;
-}
 
 export async function reviseMessageAction(message: { role: string, content: string }) {
     'use server'
