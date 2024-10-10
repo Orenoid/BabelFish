@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 // systemMessage, text, audio, suggested_answer(apply callback)
 
 import { Message } from "../lib/message";
-import { MessageContent, Role } from "./chat";
 import { CgChevronDoubleDown } from "react-icons/cg";
 import { TbPencil } from "react-icons/tb";
 import React from "react";
@@ -136,11 +135,15 @@ type textMessageState =
     | { type: 'editing', editingContent: string, originalContent: string }
 
 export class TextMessage extends Message {
-    content: string
+    readonly content: string
 
     constructor(role: string, content: string, displayToUser: boolean = true, includedInChatCompletion: boolean = true) {
         super('text', role, displayToUser, includedInChatCompletion)
         this.content = content
+    }
+
+    updateContent(content: string): TextMessage {
+        return new TextMessage(this.role, content, this.displayToUser, this.includedInChatCompletion)
     }
 
     render() {
@@ -193,8 +196,7 @@ export class TextMessage extends Message {
                             </button>
                             <button className="rounded-2xl bg-black text-white p-2"
                                 onClick={() => {
-                                    this.content = compState.editingContent
-                                    updateMessage(this) // TODO error handling
+                                    updateMessage(this.updateContent(compState.editingContent)) // TODO error handling
                                     saveEdit()
                                 }}>Save</button>
 
@@ -378,3 +380,25 @@ export class RecommendedRespMessage extends Message {
         return new RecommendedRespMessage(role, recommendedContent, displayToUser, includedInChatCompletion);
     }
 }
+
+export function Role({ name, className }: {
+    name: string;
+    className?: string;
+    avatarUrl?: string;
+}) {
+    return (
+        <div className={`flex items-center p-1 ${className}`}>
+            <span className="font-semibold">{name}</span>
+        </div>
+    );
+}export function MessageContent({ content, className = "" }: {
+    content: string;
+    className?: string;
+}) {
+    return (
+        <div className={`bg-[#F6F5F5] rounded-lg w-fit max-w-[80%] p-2 ${className}`}>
+            <div dangerouslySetInnerHTML={{ __html: content.replace(/\n/g, '<br />') }} />
+        </div>
+    );
+}
+
