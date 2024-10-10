@@ -341,13 +341,16 @@ export function MessageInput({
     const [showRoleMenu, setShowRoleMenu] = useState(false)
     const [recording, setRecording] = useState(false)
     const [mediaRecorder, setMediaRecorder] = useState<IMediaRecorder | null>(null)
+    const [stream, setStream] = useState<MediaStream | null>(null)
 
     const startRecording = async () => {
 
-        await register(await connect());
-
+        if (!MediaRecorder.isTypeSupported('audio/wav')) {
+            await register(await connect());
+        }
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        const recorder = new MediaRecorder(stream, {mimeType: 'audio/wav'})
+        setStream(stream)
+        const recorder = new MediaRecorder(stream, { mimeType: 'audio/wav' })
         setMediaRecorder(recorder)
 
         const audioChunks: Blob[] = []
@@ -364,10 +367,14 @@ export function MessageInput({
         setRecording(true)
     }
 
-    const stopRecording = () => {
+    const stopRecording = async () => {
         if (mediaRecorder) {
             mediaRecorder.stop()
             setRecording(false)
+        }
+        if (stream) {
+            // https://stackoverflow.com/questions/44274410/mediarecorder-stop-doesnt-clear-the-recording-icon-in-the-tab
+            stream.getTracks().forEach(track => track.stop())
         }
     }
 
@@ -379,7 +386,7 @@ export function MessageInput({
         const options = {
             method: 'POST',
             headers: {
-                Authorization: '',
+                Authorization: 'Bearer sk-xpllplttwxlckmnouywawyaxdjopgkqdibmniautcujluxng',
             },
             body: form
         }
@@ -471,7 +478,7 @@ export function MessageInput({
                     return
                 }
             }} rows={4} />
-        
+
         {/* Record button */}
         <button
             className="mt-2 p-2 bg-blue-500 text-white rounded hover:bg-blue-700"
