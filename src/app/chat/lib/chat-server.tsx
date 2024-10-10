@@ -12,7 +12,7 @@ export const chatCompletion = async (messageList: { role: string, content: strin
     })
 
     const result = streamText({
-        model: openai.chat('gpt-4o-mini'),
+        model: openai.chat('deepseek-ai/DeepSeek-V2.5'),
         messages: convertToCoreMessages(messageList as {role: 'system' | 'user' | 'assistant', content: string}[]),
     })
 
@@ -43,7 +43,7 @@ export async function reviseMessageAction(message: { role: string, content: stri
             'Authorization': "Bearer " + process.env.OPENAI_API_KEY,
         },
         body: JSON.stringify({
-            model: 'gpt-4o-mini',
+            model: 'deepseek-ai/DeepSeek-V2.5',
             messages: [message],
             temperature: 0.7,
             response_format: { type: 'json_object' },

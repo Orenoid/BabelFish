@@ -16,6 +16,8 @@ import { LiaComments } from "react-icons/lia";
 import { IoIosArrowDown } from "react-icons/io";
 import { LuUserCog2 } from "react-icons/lu";
 import { readStreamableValue } from "ai/rsc";
+import {IMediaRecorder, MediaRecorder, register} from 'extendable-media-recorder'
+import { connect } from "extendable-media-recorder-wav-encoder";
 
 export function Chat({ chatID, loadChatByID, className = "" }: {
     chatID: string,
@@ -337,6 +339,62 @@ export function MessageInput({
     }
 
     const [showRoleMenu, setShowRoleMenu] = useState(false)
+    const [recording, setRecording] = useState(false)
+    const [mediaRecorder, setMediaRecorder] = useState<IMediaRecorder | null>(null)
+
+    const startRecording = async () => {
+
+        await register(await connect());
+
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        const recorder = new MediaRecorder(stream, {mimeType: 'audio/wav'})
+        setMediaRecorder(recorder)
+
+        const audioChunks: Blob[] = []
+        recorder.addEventListener("dataavailable", event => {
+            audioChunks.push(event.data)
+        })
+
+        recorder.addEventListener("stop", () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' })
+            uploadAudio(audioBlob)
+        })
+
+        recorder.start()
+        setRecording(true)
+    }
+
+    const stopRecording = () => {
+        if (mediaRecorder) {
+            mediaRecorder.stop()
+            setRecording(false)
+        }
+    }
+
+    const uploadAudio = (audioBlob: Blob) => {
+        const form = new FormData()
+        form.append("model", "FunAudioLLM/SenseVoiceSmall")
+        form.append("file", audioBlob, "recording.wav")
+
+        const options = {
+            method: 'POST',
+            headers: {
+                Authorization: '',
+            },
+            body: form
+        }
+
+        fetch('https://api.siliconflow.cn/v1/audio/transcriptions', options)
+            .then(response => response.json())
+            .then(response => {
+                console.log(response);
+                stopRecording();
+            })
+            .catch(err => {
+                console.error(err);
+                stopRecording();
+            });
+    }
 
     return <div className={`flex flex-col relative border-t pt-4 pb-2 px-4 ${className}`}>
         {/* top bar */}
@@ -413,6 +471,14 @@ export function MessageInput({
                     return
                 }
             }} rows={4} />
+        
+        {/* Record button */}
+        <button
+            className="mt-2 p-2 bg-blue-500 text-white rounded hover:bg-blue-700"
+            onClick={recording ? stopRecording : startRecording}
+        >
+            {recording ? 'Stop Recording' : 'Start Recording'}
+        </button>
     </div >
 }
 

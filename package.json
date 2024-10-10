@@ -13,6 +13,8 @@
     "@reduxjs/toolkit": "^2.2.7",
     "ai": "^3.4.9",
     "diff": "^7.0.0",
+    "extendable-media-recorder": "^9.2.13",
+    "extendable-media-recorder-wav-encoder": "^7.0.117",
     "immer": "^10.1.1",
     "next": "14.2.12",
     "react": "^18",
