@@ -12,7 +12,7 @@ export default function Home() {
   return (
     <div className="flex flex-row h-full w-full">
       {/* sidebar */}
-      <div className="flex px-2 pb-12 flex-col w-[250px]">
+      <div className="flex px-2 pb-12 flex-col w-[250px] bg-[#F9F9F9]">
         <ChatSelectionList className="mt-12 flex-1 overflow-y-auto w-[250px]"
           chatSelectionListLoader={LoadChatSelectionListFromLocalStorage} />
         <NewChat addNewChat={AddNewChat} />
