@@ -5,7 +5,7 @@ import { AddMesssageInChat, ChatLoader, UpdateMessageInChat as updateMessageInCh
 import { chatCompletion } from "../lib/chat-server";
 import { useImmer } from "use-immer";
 import { type Message } from "../lib/message";
-import { RecommendedRespMessage, StreamingTextMessage, TextMessage } from "./message";
+import { RecommendedRespMessage, SpecialRoleTypes as SpecialRoles, StreamingTextMessage, TextMessage } from "./message";
 import { IoIosArrowDown } from "react-icons/io";
 import { readStreamableValue } from "ai/rsc";
 import { MessageInput } from "./input";
@@ -47,7 +47,7 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
             }
             const gen = genFunc()
 
-            const streamingMsg = new StreamingTextMessage('assistant', gen)
+            const streamingMsg = new StreamingTextMessage(SpecialRoles.ASSISTANT, gen)
             if (isTopLevel) {
                 AddMesssageInChat(chatID, streamingMsg)
             }

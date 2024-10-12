@@ -10,19 +10,19 @@ import { TbPencil } from "react-icons/tb";
 import React from "react";
 import { ThreeDots } from "react-loader-spinner";
 
-// TODO message types constants declaration
-// export const MessageType = {
-//     SYSTEM: 'systemMessage',
-//     TEXT: 'text',
-//     AUDIO: 'audio',
-//     SUGGESTED_ANSWER: 'suggested_answer'
-// } as const;
+export const MessageTypes = {
+    SYSTEM: 'systemMessage',
+    TEXT: 'text',
+    STREAMING_TEXT: 'streamingText',
+    AUDIO: 'audio',
+    SUGGESTED_ANSWER: 'suggested_answer'
+};
 
-// export const RoleType = {
-//     SYSTEM: 'system',
-//     USER: 'user',
-//     ASSISTANT: 'assistant'
-// } as const;
+export const SpecialRoleTypes = {
+    SYSTEM: 'system',
+    USER: 'user',
+    ASSISTANT: 'assistant'
+};
 
 
 type systemMessgeState =
@@ -132,6 +132,7 @@ export class SystemMessage extends Message {
 
 type textMessageState =
     | { type: 'normal', showMore: boolean, content: string }
+    | { type: 'playingAudio', content: string }
     | { type: 'editing', editingContent: string, originalContent: string }
 
 export class TextMessage extends Message {
@@ -149,15 +150,16 @@ export class TextMessage extends Message {
     render() {
         const Root = ({ updateMessage, className }: { updateMessage: (message: Message) => void, className?: string }) => {
             const [compState, setCompState] = useState<textMessageState>({ type: 'normal', showMore: false, content: this.content })
-            const showMore = (compState.type !== 'editing' && compState.showMore)
+            const showMore = (compState.type === 'normal' && compState.showMore)
+                || compState.type === 'playingAudio' // you will want to keep the buttons showing while playing the audio
             const isEditing = (compState.type === 'editing')
 
             // state convertors
-            function toggleShowMore(): void {
-                if (compState.type === 'editing') {
+            function setShowMore(showMore: boolean): void {
+                if (compState.type !== 'normal') {
                     return
                 }
-                setCompState({ type: compState.type, showMore: !compState.showMore, content: compState.content })
+                setCompState({ ...compState, showMore: showMore })
             }
             const toEditingState = () => {
                 if (compState.type === 'editing') {
@@ -179,7 +181,7 @@ export class TextMessage extends Message {
             }
 
             return <div className={`flex flex-col ${className}`}
-                onMouseEnter={toggleShowMore} onMouseLeave={toggleShowMore}>
+                onMouseEnter={() => { setShowMore(true) }} onMouseLeave={() => { setShowMore(false) }}>
                 <Role className="mb-2" name={this.role} />
                 {!isEditing && <MessageContent content={compState.content} />}
                 {isEditing &&
@@ -201,8 +203,87 @@ export class TextMessage extends Message {
                                 }}>Save</button>
 
                         </div>
-                    </div>}
+                    </div>
+                }
                 <div className={`flex flex-row mt-1 pl-1 ${showMore ? 'visible' : 'invisible'}`}>
+                    <div onClick={async () => {
+                        if (compState.type !== 'normal') {
+                            return
+                        }
+                        setCompState({ ...compState, type: 'playingAudio' })
+
+                        // detect the text language
+
+                        // pick 
+                        // 初始化 SpeechSynthesisUtterance
+                        const utterance = new SpeechSynthesisUtterance();
+                        utterance.lang = 'en-US';
+                        const allVoices: SpeechSynthesisVoice[] = [];
+                        const getVoices = () => {
+                            const voices = speechSynthesis.getVoices();
+                            if (voices.length > 0) {
+                                allVoices.push(...voices);
+                            } else {
+                                setTimeout(getVoices, 100);
+                            }
+                        };
+                        getVoices();
+
+                        let prefferedVoice: SpeechSynthesisVoice | undefined = undefined;
+                        const preferredVoice = [
+                            'Google US English',
+                            'Nicky',
+                            'Karen',
+                            'Aaron',
+                            'Gordon',
+                            'Google UK English Male',
+                            'Google UK English Female',
+                            'Catherine',
+                        ];
+                        while (allVoices.length === 0) {
+                            await new Promise(resolve => setTimeout(resolve, 100));
+                        }
+                        for (const name of preferredVoice) {
+                            for (const voice of allVoices) {
+                                if (voice.name === name) {
+                                    prefferedVoice = voice;
+                                    break;
+                                }
+                            }
+                            if (prefferedVoice !== undefined) {
+                                break;
+                            }
+                        }
+                        if (prefferedVoice !== undefined) {
+                            utterance.voice = prefferedVoice;
+                        }
+                        utterance.text = compState.content
+                        utterance.onend = () => {
+                            setCompState({ type: 'normal', content: compState.content, showMore: true })
+                        }
+                        window.speechSynthesis.speak(utterance)
+
+                        // 逐步读取数组中的段落
+                        // function speakStreamingText(index = 0) {
+                        //     if (index < streamingTextArray.length) {
+                        //         utterance.text = streamingTextArray[index];
+                        //         window.speechSynthesis.speak(utterance);
+
+                        //         // 监听当前段落结束事件
+                        //         utterance.onend = () => {
+                        //             // 读取下一段落
+                        //             speakStreamingText(index + 1);
+                        //         };
+                        //     } else {
+                        //         console.log("All paragraphs have been spoken.");
+                        //     }
+                        // }
+
+                        // // 开始读取
+                        // speakStreamingText();
+                    }}>
+                        Play audio
+                    </div>
                     <TbPencil className="cursor-pointer" size={20}
                         onClick={() => {
                             toEditingState()
@@ -241,17 +322,116 @@ export class StreamingTextMessage extends Message {
     private finished: boolean = false
 
     constructor(role: string, streamingGenerator: AsyncGenerator<string, void, unknown>) {
-        // TODO type const
-        super('streamingText', role, true, false)
+        super(MessageTypes.STREAMING_TEXT, role, true, false)
         this.streamingGenerator = streamingGenerator
     }
 
     render() {
-        const Root = ({ updateMessage, className }: { updateMessage: (message: Message) => void, className?: string }) => {
+        const Root = ({ updateMessage: persistMessage, className }: { updateMessage: (message: Message) => void, className?: string }) => {
 
-            const [streamingContent, setStreamingContent] = useState<string>('');
+            const [streamingContent, setStreamingContent] = useState<string>(this.consumedChunks.join(''));
             const [finished, setFinished] = useState<boolean>(this.finished)
             const TextMsg = new TextMessage(this.role, streamingContent, true, true).render()
+
+            // const autoPlay = true // TODO read from settings
+            const textQueue: string[] = [];
+            const buffer: string[] = []
+
+            const playTextFromQueue = async () => {
+                while (textQueue.length > 0) {
+                    const text = textQueue.shift();
+                    console.log(text)
+                    if (text) {
+                        const utterance = new SpeechSynthesisUtterance(text);
+                        utterance.lang = 'en-US';
+                        // https://stackoverflow.com/questions/49506716/speechsynthesis-getvoices-returns-empty-array-on-windows
+                        const allVoices: SpeechSynthesisVoice[] = [];
+                        const getVoices = () => {
+                            const voices = speechSynthesis.getVoices();
+                            if (voices.length > 0) {
+                                allVoices.push(...voices);
+                            } else {
+                                setTimeout(getVoices, 100);
+                            }
+                        };
+                        getVoices();
+
+                        let prefferedVoice: SpeechSynthesisVoice | undefined = undefined
+                        const preferredVoice = [
+                            'Google US English',
+                            'Nicky',
+                            'Karen',
+                            'Aaron',
+                            'Gordon',
+                            'Google UK English Male',
+                            'Google UK English Female',
+                            'Catherine',
+                        ];
+                        while (allVoices.length === 0) {
+                            await new Promise(resolve => setTimeout(resolve, 100));
+                        }
+                        for (const name of preferredVoice) {
+                            for (const voice of allVoices) {
+                                if (voice.name === name) {
+                                    prefferedVoice = voice
+                                    break
+                                }
+                            }
+                            if (prefferedVoice !== undefined) {
+                                break
+                            }
+                        }
+                        console.log(prefferedVoice)
+                        if (prefferedVoice !== undefined) {
+                            utterance.voice = prefferedVoice
+                        }
+                        window.speechSynthesis.speak(utterance);
+                        await new Promise(resolve => {
+                            utterance.onend = resolve;
+                        });
+                    }
+                }
+            };
+
+            function splitSentences(text: string): string[] {
+                // 正则匹配句子结束符号，包含句号、问号、感叹号、逗号、分号、冒号、换行符等
+                const sentenceEndings = /([.!?。！？,，;；:：\n])/g;
+
+                // 用正则分割字符串并捕获标点符号
+                const parts = text.split(sentenceEndings);
+
+                const sentences: string[] = [];
+                let currentSentence = '';
+
+                for (let i = 0; i < parts.length; i++) {
+                    // 累积句子部分
+                    currentSentence += parts[i];
+
+                    // 每遇到标点符号时，将完整句子添加到结果中，并重置 currentSentence
+                    if (sentenceEndings.test(parts[i])) {
+                        sentences.push(currentSentence);
+                        currentSentence = '';
+                    }
+                }
+
+                // 将最后可能不完整的句子保留
+                if (currentSentence) {
+                    sentences.push(currentSentence);
+                }
+
+                return sentences;
+            }
+
+            const processBuffer = () => {
+                if (buffer.length > 0) {
+                    const text = buffer.join('');
+                    const splitTexts = splitSentences(text)
+                    console.log(splitTexts)
+                    textQueue.push(...splitTexts.slice(0, -1));
+                    buffer.length = 0
+                    buffer.push(splitTexts[splitTexts.length - 1])
+                }
+            }
 
             useEffect(() => {
                 const iterator = this.streamingGenerator[Symbol.asyncIterator]();
@@ -260,13 +440,25 @@ export class StreamingTextMessage extends Message {
                 const processChunk = async () => {
                     const result = await chunk;
                     if (!result.done) {
-                        setStreamingContent(prevContent => prevContent + result.value);
                         this.consumedChunks.push(result.value);
-                        updateMessage(this);
+                        persistMessage(this);
+                        setStreamingContent(prevContent => prevContent + result.value);
+
+                        buffer.push(result.value)
+                        processBuffer()
+                        // 开始播放队列中的文本
+                        playTextFromQueue();
+
                         chunk = iterator.next();
                         requestAnimationFrame(processChunk);
                     } else {
-                        updateMessage(new TextMessage(this.role, this.consumedChunks.join(''), true, true))
+                        if (buffer.length > 0) {
+                            console.log(buffer)
+                            textQueue.push(buffer.join(''))
+                            buffer.length = 0
+                            playTextFromQueue();
+                        }
+                        persistMessage(new TextMessage(this.role, this.consumedChunks.join(''), true, true))
                         setFinished(true);
                     }
                 };
@@ -281,7 +473,7 @@ export class StreamingTextMessage extends Message {
                             <Role className="mb-2" name={this.role} />
                             <div className={`bg-[#F6F5F5] rounded-lg w-fit max-w-[80%] p-2 ${className}`}>
                                 {streamingContent.length === 0 &&
-                                    <ThreeDots color="#959595" height={15} width={15}/>
+                                    <ThreeDots color="#959595" height={15} width={15} />
                                 }
                                 {streamingContent.length > 0 &&
                                     <div dangerouslySetInnerHTML={{ __html: streamingContent.replace(/\n/g, '<br />') }} />
@@ -290,7 +482,7 @@ export class StreamingTextMessage extends Message {
                         </div>
                     }
                     {/* if finished, render as normal text message */}
-                    {finished && <TextMsg updateMessage={updateMessage} className={className} />
+                    {finished && <TextMsg updateMessage={persistMessage} className={className} />
                     }
                 </>
             );
@@ -391,7 +583,7 @@ export function Role({ name, className }: {
             <span className="font-semibold">{name}</span>
         </div>
     );
-}export function MessageContent({ content, className = "" }: {
+} export function MessageContent({ content, className = "" }: {
     content: string;
     className?: string;
 }) {
