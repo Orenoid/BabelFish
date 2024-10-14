@@ -9,6 +9,8 @@ import { CgChevronDoubleDown } from "react-icons/cg";
 import { TbPencil } from "react-icons/tb";
 import React from "react";
 import { ThreeDots } from "react-loader-spinner";
+import { HiMiniSpeakerWave } from "react-icons/hi2";
+import { FaStopCircle } from "react-icons/fa";
 
 export const MessageTypes = {
     SYSTEM: 'systemMessage',
@@ -132,7 +134,7 @@ export class SystemMessage extends Message {
 
 type textMessageState =
     | { type: 'normal', showMore: boolean, content: string }
-    | { type: 'playingAudio', content: string }
+    | { type: 'playingAudio', content: string, audioIns: SpeechSynthesisUtterance }
     | { type: 'editing', editingContent: string, originalContent: string }
 
 export class TextMessage extends Message {
@@ -153,6 +155,7 @@ export class TextMessage extends Message {
             const showMore = (compState.type === 'normal' && compState.showMore)
                 || compState.type === 'playingAudio' // you will want to keep the buttons showing while playing the audio
             const isEditing = (compState.type === 'editing')
+            const isPlaying = compState.type === 'playingAudio'
 
             // state convertors
             function setShowMore(showMore: boolean): void {
@@ -179,6 +182,56 @@ export class TextMessage extends Message {
                 }
                 setCompState({ type: 'normal', showMore: false, content: compState.originalContent })
             }
+            async function startPlaying() {
+                if (compState.type !== 'normal') {
+                    return
+                }
+                const utterance = new SpeechSynthesisUtterance();
+                // TODO detect the text language
+                utterance.lang = 'en-US';
+                const allVoices: SpeechSynthesisVoice[] = [];
+                const getVoices = () => {
+                    const voices = speechSynthesis.getVoices();
+                    if (voices.length > 0) {
+                        allVoices.push(...voices);
+                    } else {
+                        setTimeout(getVoices, 100);
+                    }
+                };
+                getVoices();
+                let prefferedVoice: SpeechSynthesisVoice | undefined = undefined;
+                const preferredVoice = ['Google US English', 'Nicky', 'Karen', 'Aaron', 'Gordon', 'Google UK English Male', 'Google UK English Female', 'Catherine'];
+                while (allVoices.length === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                for (const name of preferredVoice) {
+                    for (const voice of allVoices) {
+                        if (voice.name === name) {
+                            prefferedVoice = voice;
+                            break;
+                        }
+                    }
+                    if (prefferedVoice !== undefined) {
+                        break;
+                    }
+                }
+                if (prefferedVoice !== undefined) {
+                    utterance.voice = prefferedVoice;
+                }
+                utterance.text = compState.content
+                utterance.onend = () => {
+                    setCompState({ type: 'normal', content: compState.content, showMore: true })
+                }
+                setCompState({ ...compState, type: 'playingAudio', audioIns: utterance })
+                window.speechSynthesis.speak(utterance)
+            }
+            async function stopPlaying() {
+                if (!isPlaying){
+                    return
+                }
+                window.speechSynthesis.cancel()
+                setCompState({type: 'normal', showMore: true, content: compState.content})
+            }
 
             return <div className={`flex flex-col ${className}`}
                 onMouseEnter={() => { setShowMore(true) }} onMouseLeave={() => { setShowMore(false) }}>
@@ -201,90 +254,14 @@ export class TextMessage extends Message {
                                     updateMessage(this.updateContent(compState.editingContent)) // TODO error handling
                                     saveEdit()
                                 }}>Save</button>
-
                         </div>
                     </div>
                 }
                 <div className={`flex flex-row mt-1 pl-1 ${showMore ? 'visible' : 'invisible'}`}>
-                    <div onClick={async () => {
-                        if (compState.type !== 'normal') {
-                            return
-                        }
-                        setCompState({ ...compState, type: 'playingAudio' })
-
-                        // detect the text language
-
-                        // pick 
-                        // 初始化 SpeechSynthesisUtterance
-                        const utterance = new SpeechSynthesisUtterance();
-                        utterance.lang = 'en-US';
-                        const allVoices: SpeechSynthesisVoice[] = [];
-                        const getVoices = () => {
-                            const voices = speechSynthesis.getVoices();
-                            if (voices.length > 0) {
-                                allVoices.push(...voices);
-                            } else {
-                                setTimeout(getVoices, 100);
-                            }
-                        };
-                        getVoices();
-
-                        let prefferedVoice: SpeechSynthesisVoice | undefined = undefined;
-                        const preferredVoice = [
-                            'Google US English',
-                            'Nicky',
-                            'Karen',
-                            'Aaron',
-                            'Gordon',
-                            'Google UK English Male',
-                            'Google UK English Female',
-                            'Catherine',
-                        ];
-                        while (allVoices.length === 0) {
-                            await new Promise(resolve => setTimeout(resolve, 100));
-                        }
-                        for (const name of preferredVoice) {
-                            for (const voice of allVoices) {
-                                if (voice.name === name) {
-                                    prefferedVoice = voice;
-                                    break;
-                                }
-                            }
-                            if (prefferedVoice !== undefined) {
-                                break;
-                            }
-                        }
-                        if (prefferedVoice !== undefined) {
-                            utterance.voice = prefferedVoice;
-                        }
-                        utterance.text = compState.content
-                        utterance.onend = () => {
-                            setCompState({ type: 'normal', content: compState.content, showMore: true })
-                        }
-                        window.speechSynthesis.speak(utterance)
-
-                        // 逐步读取数组中的段落
-                        // function speakStreamingText(index = 0) {
-                        //     if (index < streamingTextArray.length) {
-                        //         utterance.text = streamingTextArray[index];
-                        //         window.speechSynthesis.speak(utterance);
-
-                        //         // 监听当前段落结束事件
-                        //         utterance.onend = () => {
-                        //             // 读取下一段落
-                        //             speakStreamingText(index + 1);
-                        //         };
-                        //     } else {
-                        //         console.log("All paragraphs have been spoken.");
-                        //     }
-                        // }
-
-                        // // 开始读取
-                        // speakStreamingText();
-                    }}>
-                        Play audio
+                    <div className="mr-2 cursor-pointer" onClick={!isPlaying ? startPlaying: stopPlaying}>
+                        {isPlaying ? <FaStopCircle color="#898989" size={25} /> : <HiMiniSpeakerWave color="#898989" size={25} />}
                     </div>
-                    <TbPencil className="cursor-pointer" size={20}
+                    <TbPencil className="cursor-pointer" size={25} color="#898989"
                         onClick={() => {
                             toEditingState()
                         }} />
@@ -453,7 +430,6 @@ export class StreamingTextMessage extends Message {
                         requestAnimationFrame(processChunk);
                     } else {
                         if (buffer.length > 0) {
-                            console.log(buffer)
                             textQueue.push(buffer.join(''))
                             buffer.length = 0
                             playTextFromQueue();
