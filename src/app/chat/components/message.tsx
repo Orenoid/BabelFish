@@ -200,11 +200,11 @@ export class TextMessage extends Message {
                 };
                 getVoices();
                 let prefferedVoice: SpeechSynthesisVoice | undefined = undefined;
-                const preferredVoice = ['Google US English', 'Nicky', 'Karen', 'Aaron', 'Gordon', 'Google UK English Male', 'Google UK English Female', 'Catherine'];
+                const preferredVoices = ['Google US English', 'Nicky', 'Karen', 'Aaron', 'Gordon', 'Google UK English Male', 'Google UK English Female', 'Catherine']
                 while (allVoices.length === 0) {
                     await new Promise(resolve => setTimeout(resolve, 100));
                 }
-                for (const name of preferredVoice) {
+                for (const name of preferredVoices) {
                     for (const voice of allVoices) {
                         if (voice.name === name) {
                             prefferedVoice = voice;
@@ -218,19 +218,29 @@ export class TextMessage extends Message {
                 if (prefferedVoice !== undefined) {
                     utterance.voice = prefferedVoice;
                 }
+                // https://stackoverflow.com/questions/21947730/chrome-speech-synthesis-with-longer-texts
+                let myTimeout: NodeJS.Timeout
+                function myTimer() {
+                    window.speechSynthesis.pause();
+                    window.speechSynthesis.resume();
+                    myTimeout = setTimeout(myTimer, 10000);
+                }
+                window.speechSynthesis.cancel()
+                myTimeout = setTimeout(myTimer, 10000)
                 utterance.text = compState.content
                 utterance.onend = () => {
+                    clearTimeout(myTimeout)
                     setCompState({ type: 'normal', content: compState.content, showMore: true })
                 }
                 setCompState({ ...compState, type: 'playingAudio', audioIns: utterance })
                 window.speechSynthesis.speak(utterance)
             }
             async function stopPlaying() {
-                if (!isPlaying){
+                if (!isPlaying) {
                     return
                 }
                 window.speechSynthesis.cancel()
-                setCompState({type: 'normal', showMore: true, content: compState.content})
+                setCompState({ type: 'normal', showMore: true, content: compState.content })
             }
 
             return <div className={`flex flex-col ${className}`}
@@ -258,7 +268,7 @@ export class TextMessage extends Message {
                     </div>
                 }
                 <div className={`flex flex-row mt-1 pl-1 ${showMore ? 'visible' : 'invisible'}`}>
-                    <div className="mr-2 cursor-pointer" onClick={!isPlaying ? startPlaying: stopPlaying}>
+                    <div className="mr-2 cursor-pointer" onClick={!isPlaying ? startPlaying : stopPlaying}>
                         {isPlaying ? <FaStopCircle color="#898989" size={25} /> : <HiMiniSpeakerWave color="#898989" size={25} />}
                     </div>
                     <TbPencil className="cursor-pointer" size={25} color="#898989"
@@ -310,136 +320,116 @@ export class StreamingTextMessage extends Message {
             const [finished, setFinished] = useState<boolean>(this.finished)
             const TextMsg = new TextMessage(this.role, streamingContent, true, true).render()
 
-            // const autoPlay = true // TODO read from settings
-            const textQueue: string[] = [];
-            const buffer: string[] = []
+            // TODO: Issues exist with strict mode
+            useEffect(() => {
+                const iterator = this.streamingGenerator[Symbol.asyncIterator]();
+                let _finished = false
+                const buffer: string[] = []
+                const splited: string[] = []
+                // const splited = createChannel<string>()
 
-            const playTextFromQueue = async () => {
-                while (textQueue.length > 0) {
-                    const text = textQueue.shift();
-                    console.log(text)
-                    if (text) {
+                const processChunk = async () => {
+                    // const send = splited.send
+                    for await (const value of iterator) {
+                        this.consumedChunks.push(value);
+                        buffer.push(value)
+                        // try to split the first sentence from buffer, if so, send it to splited channel
+                        const sentenceEndings = /([.!?。！？,，;；:：\n])/g;
+                        const sentences = buffer.join('').split(sentenceEndings);
+                        if (sentences.length > 1) {
+                            const firstSentence = sentences[0] + sentences[1];
+                            if (firstSentence !== '') {
+                                splited.push(firstSentence)
+                                // send(firstSentence);
+                                buffer.length = 0
+                                buffer.push(sentences.slice(2).join(''))
+                            }
+                        }
+                        persistMessage(this);
+                        setStreamingContent(prevContent => prevContent + value);
+                    }
+                    if (buffer.length > 0) {
+                        splited.push(buffer.join(''))
+                        buffer.length = 0
+                        // send(buffer.join(''))
+                    }
+                    if (splited.length > 0) {
+                        const left = splited.join('')
+                        splited.length = 0
+                        splited.push(left)
+                    }
+                    // splited.close()
+                    persistMessage(new TextMessage(this.role, this.consumedChunks.join(''), true, true))
+                    _finished = true
+                    setFinished(true);
+                };
+                const playAudioFromBuffer = async () => {
+                    const allVoices: SpeechSynthesisVoice[] = [];
+                    let prefferedVoice: SpeechSynthesisVoice | undefined = undefined
+                    // https://stackoverflow.com/questions/49506716/speechsynthesis-getvoices-returns-empty-array-on-windows
+                    const tryLoadVoices = () => {
+                        if (allVoices.length > 0) { return }
+                        const voices = speechSynthesis.getVoices();
+                        if (voices.length > 0) {
+                            allVoices.push(...voices);
+                        } else {
+                            setTimeout(tryLoadVoices, 100);
+                        }
+                    };
+                    tryLoadVoices();
+                    // https://stackoverflow.com/questions/21947730/chrome-speech-synthesis-with-longer-texts
+                    let myTimeout: NodeJS.Timeout
+                    function myTimer() {
+                        window.speechSynthesis.pause();
+                        window.speechSynthesis.resume();
+                        myTimeout = setTimeout(myTimer, 10000);
+                    }
+                    window.speechSynthesis.cancel()
+                    myTimeout = setTimeout(myTimer, 10000)
+                    // for await (const text of splited) {
+                    while (!_finished || splited.length > 0) {
+                        if (splited.length === 0) {
+                            await new Promise(resolve => setTimeout(resolve, 50));
+                            continue
+                        }
+                        const text = splited.shift()!
                         const utterance = new SpeechSynthesisUtterance(text);
                         utterance.lang = 'en-US';
-                        // https://stackoverflow.com/questions/49506716/speechsynthesis-getvoices-returns-empty-array-on-windows
-                        const allVoices: SpeechSynthesisVoice[] = [];
-                        const getVoices = () => {
-                            const voices = speechSynthesis.getVoices();
-                            if (voices.length > 0) {
-                                allVoices.push(...voices);
-                            } else {
-                                setTimeout(getVoices, 100);
+                        if (prefferedVoice === undefined) {
+                            const preferredVoices = ['Google US English', 'Nicky', 'Karen', 'Aaron', 'Gordon', 'Google UK English Male', 'Google UK English Female', 'Catherine']
+                            // wait until voices have been loaded
+                            while (allVoices.length === 0) {
+                                await new Promise(resolve => setTimeout(resolve, 100));
                             }
-                        };
-                        getVoices();
-
-                        let prefferedVoice: SpeechSynthesisVoice | undefined = undefined
-                        const preferredVoice = [
-                            'Google US English',
-                            'Nicky',
-                            'Karen',
-                            'Aaron',
-                            'Gordon',
-                            'Google UK English Male',
-                            'Google UK English Female',
-                            'Catherine',
-                        ];
-                        while (allVoices.length === 0) {
-                            await new Promise(resolve => setTimeout(resolve, 100));
-                        }
-                        for (const name of preferredVoice) {
-                            for (const voice of allVoices) {
-                                if (voice.name === name) {
-                                    prefferedVoice = voice
+                            for (const name of preferredVoices) {
+                                for (const voice of allVoices) {
+                                    if (voice.name === name) {
+                                        prefferedVoice = voice
+                                        break
+                                    }
+                                }
+                                if (prefferedVoice !== undefined) {
                                     break
                                 }
                             }
-                            if (prefferedVoice !== undefined) {
-                                break
-                            }
                         }
-                        console.log(prefferedVoice)
                         if (prefferedVoice !== undefined) {
                             utterance.voice = prefferedVoice
                         }
-                        window.speechSynthesis.speak(utterance);
+                        utterance.text = text
+                        utterance.onend = () => {
+                            clearTimeout(myTimeout)
+                        }
+                        window.speechSynthesis.speak(utterance)
                         await new Promise(resolve => {
                             utterance.onend = resolve;
                         });
                     }
                 }
-            };
-
-            function splitSentences(text: string): string[] {
-                // 正则匹配句子结束符号，包含句号、问号、感叹号、逗号、分号、冒号、换行符等
-                const sentenceEndings = /([.!?。！？,，;；:：\n])/g;
-
-                // 用正则分割字符串并捕获标点符号
-                const parts = text.split(sentenceEndings);
-
-                const sentences: string[] = [];
-                let currentSentence = '';
-
-                for (let i = 0; i < parts.length; i++) {
-                    // 累积句子部分
-                    currentSentence += parts[i];
-
-                    // 每遇到标点符号时，将完整句子添加到结果中，并重置 currentSentence
-                    if (sentenceEndings.test(parts[i])) {
-                        sentences.push(currentSentence);
-                        currentSentence = '';
-                    }
-                }
-
-                // 将最后可能不完整的句子保留
-                if (currentSentence) {
-                    sentences.push(currentSentence);
-                }
-
-                return sentences;
-            }
-
-            const processBuffer = () => {
-                if (buffer.length > 0) {
-                    const text = buffer.join('');
-                    const splitTexts = splitSentences(text)
-                    console.log(splitTexts)
-                    textQueue.push(...splitTexts.slice(0, -1));
-                    buffer.length = 0
-                    buffer.push(splitTexts[splitTexts.length - 1])
-                }
-            }
-
-            useEffect(() => {
-                const iterator = this.streamingGenerator[Symbol.asyncIterator]();
-                let chunk = iterator.next();
-
-                const processChunk = async () => {
-                    const result = await chunk;
-                    if (!result.done) {
-                        this.consumedChunks.push(result.value);
-                        persistMessage(this);
-                        setStreamingContent(prevContent => prevContent + result.value);
-
-                        buffer.push(result.value)
-                        processBuffer()
-                        // 开始播放队列中的文本
-                        playTextFromQueue();
-
-                        chunk = iterator.next();
-                        requestAnimationFrame(processChunk);
-                    } else {
-                        if (buffer.length > 0) {
-                            textQueue.push(buffer.join(''))
-                            buffer.length = 0
-                            playTextFromQueue();
-                        }
-                        persistMessage(new TextMessage(this.role, this.consumedChunks.join(''), true, true))
-                        setFinished(true);
-                    }
-                };
                 processChunk();
-            }, [this.streamingGenerator]); // TODO fix the warning
+                playAudioFromBuffer();
+
+            }, [persistMessage]); // TODO fix the warning
 
             return (
                 <>
