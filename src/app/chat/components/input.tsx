@@ -349,6 +349,10 @@ function TextInput(
         setInputState({ type: 'typing' })
         textAreaRef.current?.focus();
     }
+    const clearMessageInVoiceMode = () => {
+        if (inputState.type !== 'voiceMode') return;
+        setMsg(msg.updateContent(''))
+    }
     const toggleAutoSend = () => {
         if (inputState.type !== 'voiceMode') return;
         setInputState({ type: 'voiceMode', autoSend: !inputState.autoSend })
@@ -361,6 +365,8 @@ function TextInput(
             (e) => {
                 if (e.key === ' ' && isRecording && inputState.previousState.type === 'voiceMode') { stopRecording() }
                 if (e.key === 'i' && isVoiceMode) { disableVoiceMode() }
+                if (e.key === 'Enter' && isVoiceMode) { handleSend(msg) }
+                if (e.key === 'Backspace' && isVoiceMode) { clearMessageInVoiceMode() }
             }
         }
     >
