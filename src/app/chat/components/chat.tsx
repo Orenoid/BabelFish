@@ -116,6 +116,7 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
             new RecommendedRespMessage('assistant', revisedText, true, false)
         ]
         updateMessageListStack(draft => { draft.push(nextLevelMessages) })
+        setInputCompKey(prev => prev + 1)
     }
 
     return <div className={`flex flex-col flex-grow items-center rounded-lg ${className}`}>
