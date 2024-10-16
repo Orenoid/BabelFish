@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 // messasge types: 
 // systemMessage, text, audio, suggested_answer(apply callback)
 
@@ -324,53 +324,76 @@ export class StreamingTextMessage extends Message {
     render() {
         const Root = ({ updateMessage: persistMessage, className }: { updateMessage: (message: Message) => void, className?: string }) => {
 
-            const [streamingContent, setStreamingContent] = useState<string>(this.consumedChunks.join(''));
-            const [finished, setFinished] = useState<boolean>(this.finished)
-            const TextMsg = new TextMessage(this.role, streamingContent, true, true).render()
+            type MessageState =
+                | { type: 'init' }
+                | { type: 'streaming', streamingContent: string, playing: boolean }
+                | { type: 'finished', content: string }
+            const [msgState, setMsgState] = useState<MessageState>({ type: 'init' })
+            const stateRef = useRef(msgState)
+            const finished = msgState.type === 'finished'
+            const isPlaying = msgState.type === 'streaming' && msgState.playing
+
+            const TextMsg = new TextMessage(this.role, finished ? msgState.content : '', true, true).render()
 
             // TODO: Issues exist with strict mode
             useEffect(() => {
+                startStreaming()
+                // eslint-disable-next-line react-hooks/exhaustive-deps
+            }, []);
+
+            // state convertors
+            const startStreaming = () => {
+                if (msgState.type !== 'init') {
+                    return
+                }
                 const iterator = this.streamingGenerator[Symbol.asyncIterator]();
+
+                const autoPlay = true // TODO read from settings
                 let _finished = false
                 const buffer: string[] = []
                 const splited: string[] = []
-                // const splited = createChannel<string>()
 
                 const processChunk = async () => {
-                    // const send = splited.send
                     for await (const value of iterator) {
                         this.consumedChunks.push(value);
-                        buffer.push(value)
-                        // try to split the first sentence from buffer, if so, send it to splited channel
-                        const sentenceEndings = /([.!?。！？,，;；:：\n])/g;
-                        const sentences = buffer.join('').split(sentenceEndings);
-                        if (sentences.length > 1) {
-                            const firstSentence = sentences[0] + sentences[1];
-                            if (firstSentence !== '') {
-                                splited.push(firstSentence)
-                                // send(firstSentence);
-                                buffer.length = 0
-                                buffer.push(sentences.slice(2).join(''))
+                        persistMessage(this);
+                        if (stateRef.current.type === 'init') {
+                            setMsgState({ 'type': 'streaming', streamingContent: value, playing: false })
+                            stateRef.current = { 'type': 'streaming', streamingContent: value, playing: false }
+                        } else if (stateRef.current.type === 'streaming') {
+                            setMsgState({ 'type': 'streaming', streamingContent: stateRef.current.streamingContent + value, playing: stateRef.current.playing })
+                            stateRef.current = { 'type': 'streaming', streamingContent: stateRef.current.streamingContent + value, playing: stateRef.current.playing }
+                        }
+                        if (autoPlay) {
+                            buffer.push(value)
+                            // try to split the first sentence from buffer, if so, send it to splited channel
+                            const sentenceEndings = /([.!?。！？,，;；:：\n])/g;
+                            const sentences = buffer.join('').split(sentenceEndings);
+                            if (sentences.length > 1) {
+                                const firstSentence = sentences[0] + sentences[1];
+                                if (firstSentence !== '') {
+                                    splited.push(firstSentence)
+                                    buffer.length = 0
+                                    buffer.push(sentences.slice(2).join(''))
+                                }
                             }
                         }
-                        persistMessage(this);
-                        setStreamingContent(prevContent => prevContent + value);
                     }
-                    if (buffer.length > 0) {
+                    if (autoPlay && buffer.length > 0) {
                         splited.push(buffer.join(''))
                         buffer.length = 0
-                        // send(buffer.join(''))
                     }
-                    if (splited.length > 0) {
+                    if (autoPlay && splited.length > 0) {
                         const left = splited.join('')
                         splited.length = 0
                         splited.push(left)
                     }
-                    // splited.close()
                     persistMessage(new TextMessage(this.role, this.consumedChunks.join(''), true, true))
                     _finished = true
-                    setFinished(true);
+                    setMsgState({ type: 'finished', content: this.consumedChunks.join('') })
+                    stateRef.current = { type: 'finished', content: this.consumedChunks.join('') }
                 };
+
                 const playAudioFromBuffer = async () => {
                     const allVoices: SpeechSynthesisVoice[] = [];
                     let prefferedVoice: SpeechSynthesisVoice | undefined = undefined
@@ -394,7 +417,8 @@ export class StreamingTextMessage extends Message {
                     }
                     window.speechSynthesis.cancel()
                     myTimeout = setTimeout(myTimer, 10000)
-                    // for await (const text of splited) {
+
+                    let isFirstUtt = true
                     while (!_finished || splited.length > 0) {
                         if (splited.length === 0) {
                             await new Promise(resolve => setTimeout(resolve, 50));
@@ -428,32 +452,60 @@ export class StreamingTextMessage extends Message {
                         utterance.onend = () => {
                             clearTimeout(myTimeout)
                         }
+                        if (isFirstUtt) {
+                            // when the first utterance starts speaking, set playing=true
+                            setMsgState({ ...stateRef.current as { type: 'streaming', streamingContent: string, playing: boolean }, playing: true })
+                            stateRef.current = { ...stateRef.current as { type: 'streaming', streamingContent: string, playing: boolean }, playing: true }
+                            isFirstUtt = false
+                        }
                         window.speechSynthesis.speak(utterance)
                         await new Promise(resolve => {
                             utterance.onend = resolve;
                         });
                     }
                 }
-                processChunk();
-                playAudioFromBuffer();
 
-            }, [persistMessage]); // TODO fix the warning
+                processChunk()
+                if (autoPlay) {
+                    playAudioFromBuffer()
+                }
+            }
+            const stopPlaying = () => {
+                if (msgState.type !== 'streaming' || !msgState.playing) {
+                    return
+                }
+                window.speechSynthesis.cancel()
+                setMsgState({ ...stateRef.current as { type: 'streaming', streamingContent: string, playing: boolean }, playing: false })
+                stateRef.current = { ...stateRef.current as { type: 'streaming', streamingContent: string, playing: boolean }, playing: false }
+            }
 
             return (
                 <>
                     {/* if not finished, render as streaming message */}
                     {!finished &&
-                        <div className={`flex flex-col ${className}`}>
-                            <Role className="mb-2" name={this.role} />
-                            <div className={`bg-[#F6F5F5] rounded-lg w-fit max-w-[80%] p-2 ${className}`}>
-                                {streamingContent.length === 0 &&
-                                    <ThreeDots color="#959595" height={15} width={15} />
-                                }
-                                {streamingContent.length > 0 &&
-                                    <div dangerouslySetInnerHTML={{ __html: streamingContent.replace(/\n/g, '<br />') }} />
+                        <div className="flex flex-col">
+                            {/* message content */}
+                            <div className={`flex flex-col ${className}`}>
+                                <Role className="mb-2" name={this.role} />
+                                <div className={`bg-[#F6F5F5] rounded-lg w-fit max-w-[80%] p-2 ${className}`}>
+                                    {msgState.type === 'init' &&
+                                        <ThreeDots color="#959595" height={15} width={15} />
+                                    }
+                                    {msgState.type === 'streaming' &&
+                                        <div dangerouslySetInnerHTML={{ __html: msgState.streamingContent.replace(/\n/g, '<br />') }} />
+                                    }
+                                </div>
+                            </div>
+                            {/* control buttons */}
+                            <div className={`flex flex-row mt-1 pl-1`}>
+                                {isPlaying &&
+                                    <div className="mr-2 cursor-pointer" onClick={stopPlaying}>
+                                        <FaStopCircle color="#898989" size={25} />
+                                    </div>
                                 }
                             </div>
                         </div>
+
                     }
                     {/* if finished, render as normal text message */}
                     {finished && <TextMsg updateMessage={persistMessage} className={className} />}
