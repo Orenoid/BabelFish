@@ -547,7 +547,7 @@ function TextInput(
                         />
                     </label>}
                 <button
-                    className="rounded-full bg-blue-500 text-white hover:bg-blue-700 focus:outline-none"
+                    className="rounded-full bg-black hover:bg-gray-700 focus:outline-none"
                     onClick={isRecording ? stopRecording : startRecording}
                 >
                     {isRecording ?
