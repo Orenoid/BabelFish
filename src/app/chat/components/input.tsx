@@ -209,6 +209,7 @@ export function MessageInput({
 
     const isNormal = compState.type === 'normal';
     const waitingForApproval = compState.type === 'waitingApproval';
+    const [rejectionSignal, setRejectionSignal] = useState(0)
 
     // state convertors
     const updateMessage = useCallback((message: Message) => {
@@ -248,16 +249,13 @@ export function MessageInput({
             return;
         }
         setCompState({ type: 'normal', message: new TextMessage(compState.message.role, revisedText), fromRevision: true });
-        // TODO
-        // textAreaRef.current?.focus();
     }
     function rejectRevision() {
         if (!waitingForApproval) {
             return;
         }
         setCompState({ type: 'normal', message: compState.message, fromRevision: false });
-        // TODO
-        // textAreaRef.current?.focus();
+        setRejectionSignal(prev => prev + 1)
     }
 
     function calculateTextAreaHeight(): number {
@@ -315,8 +313,9 @@ export function MessageInput({
                     startFollowUpDiscussion(compState.revisionInstruction, messageToRevise, revisedText);
                 }} />}
         {/* message input area (perhaps calling it 'message constructor' would be more appropriate) */}
-        <TextInput chatKey={chatKey} allowEdit={isNormal} addMessage={addMesssage} updateMessage={updateMessage}
-            revisionMessage={isNormal ? [compState.message, compState.fromRevision] : undefined} />
+        <TextInput chatKey={chatKey} allowEdit={isNormal}
+            addMessage={addMesssage} updateMessage={updateMessage}
+            revisionMessage={isNormal ? [compState.message, compState.fromRevision] : undefined} rejectionSignal={rejectionSignal} />
     </div>;
 }
 
@@ -327,6 +326,7 @@ function TextInput(
         updateMessage: (message: Message) => void
         addMessage: (message: Message, opts: messageAddedCallbackOptions) => void
         revisionMessage: [Message, boolean] | undefined // Updated when a revision is provided, initialized as undefined
+        rejectionSignal: number, // Signal to indicate rejection of a revision
     }
 ) {
     type typingOrVoiceMode = { type: 'typing' } | { type: 'voiceMode', autoSend: boolean };
@@ -354,6 +354,13 @@ function TextInput(
             setInputState({ type: 'noEdit', recoverState: recoverState })
         } else if (inputState.type === 'noEdit' && allowEdit) {
             setInputState(inputState.recoverState)
+            setTimeout(() => {
+                if (inputState.recoverState.type === 'voiceMode') {
+                    inputDivRef.current?.focus()
+                } else {
+                    textAreaRef.current?.focus()
+                }
+            }, 100);
         }
     }, [allowEdit, inputState])
 
@@ -381,6 +388,13 @@ function TextInput(
 
     useEffect(() => {
         setMsg(new TextMessage(role, ''))
+        setTimeout(() => {
+            if (inputState.type === 'voiceMode') {
+                inputDivRef.current?.focus()
+            } else {
+                textAreaRef.current?.focus()
+            }
+        }, 100);
     }, [chatKey]) // TODO fix the warning
 
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
@@ -481,7 +495,7 @@ function TextInput(
         setInputState({ type: 'voiceMode', autoSend: !inputState.autoSend })
     }
 
-    return <div ref={inputDivRef} className="flex flex-col focus:outline-none"
+    return <div ref={inputDivRef} tabIndex={0} className="flex flex-col focus:outline-none"
         onKeyDown={(e) => e.key === ' ' && isVoiceMode && startRecording()}
         // TODO bug: if the space key is released too soon right after pressing it, the recording will not stop
         onKeyUp={
