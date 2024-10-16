@@ -1,7 +1,5 @@
 "use client";
 
-import { IMediaRecorder, MediaRecorder, register } from "extendable-media-recorder";
-import { connect } from "extendable-media-recorder-wav-encoder";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { FaBackspace, FaMicrophone, FaSpellCheck } from "react-icons/fa";
 import { LuUserCog2 } from "react-icons/lu";
@@ -16,6 +14,7 @@ import { PiKeyReturnBold } from "react-icons/pi";
 import { Message } from "../lib/message";
 import { reviseMessageAction } from "../lib/chat-server";
 import Switch from "react-switch"
+import { IMediaRecorder } from "extendable-media-recorder";
 
 export interface RevisionEntry {
     iconNode: React.ReactNode;
@@ -279,6 +278,8 @@ function TextInput(
         if (inputState.type !== 'typing' && inputState.type !== 'voiceMode') {
             return
         }
+        const { MediaRecorder, register } = await import("extendable-media-recorder");
+        const { connect } = await import("extendable-media-recorder-wav-encoder");
         if (!MediaRecorder.isTypeSupported('audio/wav')) {
             await register(await connect());
         }
