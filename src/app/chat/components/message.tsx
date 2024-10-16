@@ -131,7 +131,6 @@ export class SystemMessage extends Message {
     }
 }
 
-
 type textMessageState =
     | { type: 'normal', showMore: boolean, content: string }
     | { type: 'playingAudio', content: string, audioIns: SpeechSynthesisUtterance }
@@ -549,7 +548,9 @@ export function Role({ name, className }: {
             <span className="font-semibold">{name}</span>
         </div>
     );
-} export function MessageContent({ content, className = "" }: {
+}
+
+export function MessageContent({ content, className = "" }: {
     content: string;
     className?: string;
 }) {

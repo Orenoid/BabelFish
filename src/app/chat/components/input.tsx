@@ -12,7 +12,7 @@ import { diffChars } from "diff";
 import { LiaComments } from "react-icons/lia";
 import { PiKeyReturnBold } from "react-icons/pi";
 import { Message } from "../lib/message";
-import { reviseMessageAction } from "../lib/chat-server";
+import { chatCompletion } from "../lib/chat-server";
 import Switch from "react-switch"
 import { IMediaRecorder } from "extendable-media-recorder";
 
@@ -50,34 +50,100 @@ export async function reviseMessage(
             filter((msg) => msg.includedInChatCompletion).
             map(msg => `[START]${msg.role}: ${msg.toJSON().content}[END]`).join('\n') : "";
 
-    const revisionPrompt = `${includeHistory ? `This is an ongoing conversation:
-    """
-    ${historyContext}
-    """` : ""}
-    This is a message the user is about to send in conversation:
-    """
-    ${messageToRevise}
-    """
-    If the message is empty, it potentially means the user needs a answer suggestion.
+    const systemPrompt = `You're a helpful assistant. Your duty is to assist users in a conversation, and sometimes users will provide you with the message they are about to send, asking you to help modify, correct, translate or rewrite the provided message.First, the user will send you the ongoing conversation history in the following format:
+"""
+[START]somebody: ...[END]
+[START]user: ...[END]
+[START]somebody: ...[END]
+"""
+Then, the user will provide the message text they are about to send:
+"""
+message content about to send
+"""
+Next, the user will give an instruction:
+"""
+instruction about the revision you should do on the message above
+"""
+Please follow the user's instruction, considering the historical context of the conversation, and revise or rewrite the message. Then, return the revised message in the following JSON format:
+"""
+{"revision": "..."}
+"""
+IMPORTANT: The revision you generate is intended for the user to respond the ongoing conversation, not to reply to the user's current instruction.
+`
 
-    This is the user's instruction or question:
-    """
-    ${userInstruction}
-    """
+    const fewShotMessages = [
+        `here is the ongoing conversation history:
+"""
+[START]assistant: Hello, how can I assist you?[END]
+[START]user: I want to book a room.[END]
+[START]assistant: Sure, what kind of room do you need?[END]
+"""
+here is the message I'm about to send:
+"""
+我需要一个双人房，住两晚。
+"""
+here is what you shoud do with the message:
+"""
+translate it into English
+"""`,
+        `{"revision": "I need a double room for two nights."}`
+    ]
+    const userMessage = `here is the ongoing conversation history:
+"""
+${historyContext}
+"""
+here is the message I'm about to send:
+"""
+${messageToRevise}
+"""
+here is what you shoud do with the message:
+"""
+${userInstruction}
+"""`
+
+// const revisionPrompt = `${includeHistory ? `This is an ongoing conversation:
+//     """
+//     ${historyContext}
+//     """` : ""}
+//     This is a message the user is about to send in conversation:
+//     """
+//     ${messageToRevise}
+//     """
+//     If the message is empty, it potentially means the user needs a answer suggestion.
+
+//     This is the user's instruction or question:
+//     """
+//     ${userInstruction}
+//     """
     
-    Please generate a suggestion based on the user's instruction or question, considering the context of the conversation, and return it in the following JSON format, while preserving the user's line breaks and formatting if any:
-    """
-    {
-        "suggested_answer": "..."
-    }
-    """
+//     Please generate a suggestion based on the user's instruction or question, considering the context of the conversation, and return it in the following JSON format, while preserving the user's line breaks and formatting if any:
+//     """
+//     {
+//         "suggested_answer": "..."
+//     }
+//     """
 
-    IMPORTANT: The suggested_answer you generate is intended for the user to respond to another conversation, not to reply to the user's current instruction or question.
-    `;
+//     IMPORTANT: The suggested_answer you generate is intended for the user to respond to another conversation, not to reply to the user's current instruction or question.
+//     `;
 
-    const revisedText = await reviseMessageAction({ role: 'user', content: revisionPrompt });
-    return revisedText;
+    const messages = [
+        {role: 'system', content: systemPrompt},
+        {role: 'user', content: fewShotMessages[0]},
+        {role: 'assistant', content: fewShotMessages[1]},
+        {role: 'user', content: userMessage}
+    ]
+    const rawJson = await chatCompletion(messages);
+    const revision = JSON.parse(rawJson).revision;
+    return revision;
 }
+
+// export async function generateMessage(
+//     userInstruction: string,
+//     historyMessages: Message[],
+// ) {
+//     return
+// }
+
 
 // Temporarily use this to convert message to text for revision
 function messageToText(message: Message): string {
@@ -484,6 +550,8 @@ export function DiffView(
                     approveRevisionCallback(revisedText);
                 } else if (e.key === 'Backspace') {
                     rejectRevisionCallback();
+                } else if (e.key === 'Tab') {
+                    startFollowUpDiscussion(originalText, revisedText);
                 }
             }}>
             {changes.length > 0 && (

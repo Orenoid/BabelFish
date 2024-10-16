@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AddMesssageInChat, ChatLoader, UpdateMessageInChat as updateMessageInChat } from "../lib/chat"; // Changed to type-only import
-import { chatCompletion } from "../lib/chat-server";
+import { chatCompletionInStream } from "../lib/chat-server";
 import { useImmer } from "use-immer";
 import { type Message } from "../lib/message";
 import { RecommendedRespMessage, SpecialRoleTypes as SpecialRoles, StreamingTextMessage, TextMessage } from "./message";
@@ -36,7 +36,7 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
             if (messageList.length === 0 || messageList[messageList.length - 1].role !== 'user') return
 
             async function* genFunc() {
-                const { status } = await chatCompletion(
+                const { status } = await chatCompletionInStream(
                     messageList.filter((msg) => msg.includedInChatCompletion).map((msg) => (msg.toJSON()))
                 )
 

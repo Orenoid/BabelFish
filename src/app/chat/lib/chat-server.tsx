@@ -5,7 +5,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 
 // TODO reorganize the functions
 
-export const chatCompletion = async (messageList: { role: string, content: string }[]) => {
+export const chatCompletionInStream = async (messageList: { role: string, content: string }[]) => {
     const openai = createOpenAI({
         baseURL: process.env.OPENAI_BASE_URL,
         apiKey: process.env.OPENAI_API_KEY,
@@ -29,7 +29,7 @@ export const chatCompletion = async (messageList: { role: string, content: strin
     };
 };
 
-export async function reviseMessageAction(message: { role: string, content: string }) {
+export async function chatCompletion(messages: { role: string, content: string }[]) {
     'use server'
     const url = process.env.OPENAI_CHAT_COMPLETION_URL;
     if (!url) {
@@ -44,7 +44,7 @@ export async function reviseMessageAction(message: { role: string, content: stri
         },
         body: JSON.stringify({
             model: 'deepseek-ai/DeepSeek-V2.5',
-            messages: [message],
+            messages: messages,
             temperature: 0.7,
             response_format: { type: 'json_object' },
         }),
@@ -56,9 +56,6 @@ export async function reviseMessageAction(message: { role: string, content: stri
     }
 
     const data = await response.json();
-    const revisedTextInJson = data.choices[0].message.content;
-    const revisedText = JSON.parse(revisedTextInJson).suggested_answer;
-    return revisedText;
+    const respRawJson = data.choices[0].message.content;
+    return respRawJson
 }
-
-
