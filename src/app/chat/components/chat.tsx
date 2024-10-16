@@ -19,7 +19,8 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
     const [messageListStack, updateMessageListStack] = useImmer<Message[][]>([])
     const isTopLevel = messageListStack.length <= 1
     const currentMessageList = messageListStack.length > 0 ? messageListStack[messageListStack.length - 1] : []
-    const [inputCompKey, setInputCompKey] = useState(0) // for force update
+    const [inputCompKey, setInputCompKey] = useState(0) // for force reset
+    const [chatKey, setChatKey] = useState(0) // for informing children that current chat has switched
 
     useEffect(() => {
         const messageList = loadChatByID(chatID)
@@ -116,7 +117,7 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
             new RecommendedRespMessage('assistant', revisedText, true, false)
         ]
         updateMessageListStack(draft => { draft.push(nextLevelMessages) })
-        setInputCompKey(prev => prev + 1)
+        setChatKey(prev => prev + 1)
     }
 
     return <div className={`flex flex-col flex-grow items-center rounded-lg ${className}`}>
@@ -126,13 +127,14 @@ export function Chat({ chatID, loadChatByID, className = "" }: {
         {/* button for jumping back to top level while in follow-up discussions */}
         {!isTopLevel &&
             <div className="hover:bg-gray-200 cursor-pointer py-2 w-4/5 flex justify-center"
-                onClick={() => { updateMessageListStack(draft => { draft.pop() }); }}>
+                onClick={() => { updateMessageListStack(draft => { draft.pop() }); setChatKey(prev => prev + 1) }}>
                 <IoIosArrowDown size={30} color="#5f5f5f" />
             </div>}
 
         <MessageList className="flex-initial overflow-auto w-4/5 h-full" messageList={currentMessageList} updateMessage={updateMessage} />
 
-        <MessageInput className="w-4/5" key={inputCompKey} // for force reset
+        <MessageInput className="w-4/5" 
+            key={inputCompKey} chatKey={chatKey}
             addMesssage={addMesssage} messageList={currentMessageList}
             // Temporarily forbid nested multi-level discussions, the component has already supported, 
             // it's just the AI might be unable to handle too many levels

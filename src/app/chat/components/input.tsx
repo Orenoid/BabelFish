@@ -195,10 +195,11 @@ export type MessageInputState =
     | { type: 'waitingApproval'; message: Message; revisedMsg: Message; revisionInstruction: string; };
 
 export function MessageInput({
-    messageList, addMesssage, allowFollowUpDiscussion, startFollowUpDiscussion, className = ""
+    messageList, addMesssage, chatKey, allowFollowUpDiscussion, startFollowUpDiscussion, className = ""
 }: {
     messageList: Message[];
     addMesssage: (message: Message, callbackOpts?: messageAddedCallbackOptions) => void;
+    chatKey: number,
     allowFollowUpDiscussion: boolean;
     startFollowUpDiscussion: (userInstruction: string, messageToRevise: string, revisedText: string) => void;
     className?: string;
@@ -314,14 +315,15 @@ export function MessageInput({
                     startFollowUpDiscussion(compState.revisionInstruction, messageToRevise, revisedText);
                 }} />}
         {/* message input area (perhaps calling it 'message constructor' would be more appropriate) */}
-        <TextInput allowEdit={isNormal} addMessage={addMesssage} updateMessage={updateMessage}
+        <TextInput chatKey={chatKey} allowEdit={isNormal} addMessage={addMesssage} updateMessage={updateMessage}
             revisionMessage={isNormal ? [compState.message, compState.fromRevision] : undefined} />
     </div>;
 }
 
 function TextInput(
-    { allowEdit, addMessage, updateMessage, revisionMessage }: {
+    { allowEdit, chatKey, addMessage, updateMessage, revisionMessage }: {
         allowEdit: boolean
+        chatKey: number
         updateMessage: (message: Message) => void
         addMessage: (message: Message, opts: messageAddedCallbackOptions) => void
         revisionMessage: [Message, boolean] | undefined // Updated when a revision is provided, initialized as undefined
@@ -376,6 +378,10 @@ function TextInput(
             textAreaRef.current?.focus() // After the revision is applied, for convenience, focus the text area for the user to continue typing
         }
     }, [msg.content, revisionMessage])
+
+    useEffect(() => {
+        setMsg(new TextMessage(role, ''))
+    }, [chatKey]) // TODO fix the warning
 
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
     const inputDivRef = useRef<HTMLDivElement>(null);
