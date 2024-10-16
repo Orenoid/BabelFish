@@ -456,8 +456,7 @@ export class StreamingTextMessage extends Message {
                         </div>
                     }
                     {/* if finished, render as normal text message */}
-                    {finished && <TextMsg updateMessage={persistMessage} className={className} />
-                    }
+                    {finished && <TextMsg updateMessage={persistMessage} className={className} />}
                 </>
             );
         }
@@ -466,8 +465,8 @@ export class StreamingTextMessage extends Message {
 
     static deserialize(serialized: string): TextMessage {
         const { role, consumedChunks } = JSON.parse(serialized);
-        // it's pointless to deserialize into a streaming message, since the stream has been closed
-        // so just return a normal text message with previously consumed chunks, 
+        // it's pointless to deserialize into a streaming message, since the stream will be lost while serializing
+        // so just return a normal text message with already consumed chunks, 
         // regardless of whether the previous stream has finished or not
         return new TextMessage(role, consumedChunks.join(''), true, true);
     }
