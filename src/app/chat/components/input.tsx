@@ -16,25 +16,35 @@ import { chatCompletion } from "../lib/chat-server";
 import Switch from "react-switch"
 import { IMediaRecorder } from "extendable-media-recorder";
 
-export interface RevisionEntry {
-    iconNode: React.ReactNode;
-    userInstruction: string;
-    // allow the icon to specify a callback to handle its custom shortcut key
-    shortcutCallback?: (e: React.KeyboardEvent) => boolean;
+enum UtilsTypes {
+    Generation = "generation",
+    Revision = "revision"
 }
 
-const defaultRevisions: RevisionEntry[] = [
+
+export interface UtilsEntry {
+    iconNode: React.ReactNode;
+    userInstruction: string;
+    type: UtilsTypes;
+    // allow the icon to specify a callback to handle its custom shortcut key
+    shortcutKeyCallback?: (e: React.KeyboardEvent) => boolean;
+}
+
+const defaultUtils: UtilsEntry[] = [
     {
         iconNode: <MdGTranslate size={20} />, userInstruction: "How do I say it in English to express the same meaning?",
-        shortcutCallback: (e: React.KeyboardEvent) => e.key === 'k' && (e.metaKey || e.ctrlKey)
+        type: UtilsTypes.Revision,
+        shortcutKeyCallback: (e: React.KeyboardEvent) => e.key === 'k' && (e.metaKey || e.ctrlKey)
     },
     {
         iconNode: <TbPencilQuestion size={20} title="Ask AI to answer this question" />, userInstruction: "Help me respond to this message",
-        shortcutCallback: (e: React.KeyboardEvent) => e.key === '/' && (e.metaKey || e.ctrlKey)
+        type: UtilsTypes.Generation,
+        shortcutKeyCallback: (e: React.KeyboardEvent) => e.key === '/' && (e.metaKey || e.ctrlKey)
     },
     {
         iconNode: <FaSpellCheck size={20} className="ml-[-2px]" />, userInstruction: "Correct grammar issue",
-        shortcutCallback: (e: React.KeyboardEvent) => e.key === 'g' && (e.metaKey || e.ctrlKey)
+        type: UtilsTypes.Revision,
+        shortcutKeyCallback: (e: React.KeyboardEvent) => e.key === 'g' && (e.metaKey || e.ctrlKey)
     }
 ];
 
@@ -100,49 +110,77 @@ here is what you shoud do with the message:
 """
 ${userInstruction}
 """`
-
-// const revisionPrompt = `${includeHistory ? `This is an ongoing conversation:
-//     """
-//     ${historyContext}
-//     """` : ""}
-//     This is a message the user is about to send in conversation:
-//     """
-//     ${messageToRevise}
-//     """
-//     If the message is empty, it potentially means the user needs a answer suggestion.
-
-//     This is the user's instruction or question:
-//     """
-//     ${userInstruction}
-//     """
-    
-//     Please generate a suggestion based on the user's instruction or question, considering the context of the conversation, and return it in the following JSON format, while preserving the user's line breaks and formatting if any:
-//     """
-//     {
-//         "suggested_answer": "..."
-//     }
-//     """
-
-//     IMPORTANT: The suggested_answer you generate is intended for the user to respond to another conversation, not to reply to the user's current instruction or question.
-//     `;
-
     const messages = [
-        {role: 'system', content: systemPrompt},
-        {role: 'user', content: fewShotMessages[0]},
-        {role: 'assistant', content: fewShotMessages[1]},
-        {role: 'user', content: userMessage}
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: fewShotMessages[0] },
+        { role: 'assistant', content: fewShotMessages[1] },
+        { role: 'user', content: userMessage }
     ]
     const rawJson = await chatCompletion(messages);
     const revision = JSON.parse(rawJson).revision;
     return revision;
 }
 
-// export async function generateMessage(
-//     userInstruction: string,
-//     historyMessages: Message[],
-// ) {
-//     return
-// }
+export async function generateMessage(
+    userInstruction: string,
+    historyMessages: Message[],
+    includeHistory: boolean = true,
+    historyMessageCount: number | undefined = undefined
+) {
+
+    const historyContext = includeHistory ?
+        historyMessages.slice(-(historyMessageCount ?? historyMessages.length)).
+            filter((msg) => msg.includedInChatCompletion).
+            map(msg => `[START]${msg.role}: ${msg.toJSON().content}[END]`).join('\n') : "";
+
+    const systemPrompt = `You're a helpful assistant. Your duty is to assist users in a conversation, and sometimes users don't know how to respond, you need to help the user provide a response for reference. First, the user will send you the ongoing conversation history in the following format:
+"""
+[START]somebody: ...[END]
+[START]user: ...[END]
+[START]somebody: ...[END]
+"""
+Next, the user will give an instruction:
+"""
+instruction on how you should generate relevant repl
+"""
+Please follow the user's instruction, considering the historical context of the conversation, and provide a recommended response for the user's reference. Then, return the recommended response in the following JSON format:
+"""
+{"recommended": "..."}
+"""
+IMPORTANT: The response you generate is intended for the user to respond the ongoing conversation, not to reply to the user's current instruction.
+`
+
+    const fewShotMessages = [
+        `here is the ongoing conversation history:
+"""
+[START]assistant: Hello, welcome to our interview. Can you please introduce yourself?[END]
+[START]user: Sure, my name is John Doe and I have a background in software development.[END]
+[START]assistant: Great, John. Can you briefly tell me what data types are in Python?[END]
+"""
+here is my instruction:
+"""
+help me answer it
+"""`,
+        `{"recommended": "In Python, data types include integers, floats, strings, lists, tuples, sets, and dictionaries."}`
+    ]
+    const userMessage = `here is the ongoing conversation history:
+"""
+${historyContext}
+"""
+here is my instruction:
+"""
+${userInstruction}
+"""`
+    const messages = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: fewShotMessages[0] },
+        { role: 'assistant', content: fewShotMessages[1] },
+        { role: 'user', content: userMessage }
+    ]
+    const rawJson = await chatCompletion(messages);
+    const recommended = JSON.parse(rawJson).recommended;
+    return recommended;
+}
 
 
 // Temporarily use this to convert message to text for revision
@@ -182,12 +220,24 @@ export function MessageInput({
         if (!isNormal) {
             return;
         }
+        const util = defaultUtils[triggeredIndex]
+        if (util.type === UtilsTypes.Generation && !compState.message.isEmpty()) {
+            return // TODO raise error
+        }
+        if (util.type === UtilsTypes.Revision && compState.message.isEmpty()) {
+            return
+        }
         setCompState({ type: 'revising', revisingIndex: triggeredIndex, message: compState.message });
-        const userInstruction = defaultRevisions[triggeredIndex].userInstruction;
-        const revisedText = await reviseMessage(messageToText(compState.message), userInstruction, messageList);
+        const userInstruction = util.userInstruction;
+        let result: string
+        if (compState.message.isEmpty()) {
+            result = await generateMessage(userInstruction, messageList)
+        } else {
+            result = await reviseMessage(messageToText(compState.message), userInstruction, messageList);
+        }
         setCompState({
             type: 'waitingApproval',
-            revisedMsg: new TextMessage(compState.message.role, revisedText),
+            revisedMsg: new TextMessage(compState.message.role, result),
             revisionInstruction: userInstruction,
             message: compState.message
         });
@@ -220,8 +270,8 @@ export function MessageInput({
 
     return <div className={`flex flex-col relative border-t pt-4 pb-2 px-4 ${className}`}
         onKeyDown={(e) => {
-            defaultRevisions.forEach((icon, i) => {
-                if (icon.shortcutCallback && icon.shortcutCallback(e)) {
+            defaultUtils.forEach((icon, i) => {
+                if (icon.shortcutKeyCallback && icon.shortcutKeyCallback(e)) {
                     const ii = i;
                     e.preventDefault();
                     startRevising(ii);
@@ -233,7 +283,7 @@ export function MessageInput({
         <div className="flex flex-row px-4 mb-2">
             {/* top bar - revision entry icons */}
             <div className="flex flex-row">
-                {defaultRevisions.map((icon, index) => {
+                {defaultUtils.map((icon, index) => {
                     // loading effect while revising
                     if (compState.type === 'revising' && compState.revisingIndex === index) {
                         return <div className="p-1 mr-1 w-[28px]" key={index}>

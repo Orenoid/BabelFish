@@ -32,6 +32,9 @@ type systemMessgeState =
     | { type: 'folded', showMore: boolean, content: string }
     | { type: 'editing', editingContent: string, originalContent: string }
 export class SystemMessage extends Message {
+    isEmpty(): boolean {
+        return this._systemPrompt.trim() === '';
+    }
 
     private _systemPrompt: string
     private _fold: boolean
@@ -137,6 +140,9 @@ type textMessageState =
     | { type: 'editing', editingContent: string, originalContent: string }
 
 export class TextMessage extends Message {
+    isEmpty(): boolean {
+        return this.content.trim() === '';
+    }
     readonly content: string
 
     constructor(role: string, content: string, displayToUser: boolean = true, includedInChatCompletion: boolean = true) {
@@ -302,6 +308,9 @@ export class TextMessage extends Message {
 }
 
 export class StreamingTextMessage extends Message {
+    isEmpty(): boolean {
+        return this.consumedChunks.join('').trim() === '';
+    }
 
     private streamingGenerator: AsyncGenerator<string, void, unknown>
     private consumedChunks: string[] = []
@@ -482,6 +491,9 @@ export class StreamingTextMessage extends Message {
 }
 
 export class RecommendedRespMessage extends Message {
+    isEmpty(): boolean {
+        return false
+    }
     recommendedContent: string
 
     constructor(role: string, recommendedContent: string, displayToUser: boolean = true, includedInChatCompletion: boolean = true) {

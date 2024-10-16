@@ -31,6 +31,8 @@ export abstract class Message {
         throw new Error("Deserialization not implemented for this message type");
     }
 
+    abstract isEmpty(): boolean
+    
     // return the json object of this message as part of chat completion api request
     abstract toJSON(): { role: string, content: string }
 }
