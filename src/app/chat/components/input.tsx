@@ -535,11 +535,16 @@ function TextInput(
                         // while recording and transcribing, keep what was set before
                         || (inputState.type === 'recording' && inputState.previousState.type === 'voiceMode')
                         || (inputState.type === 'transcribing' && inputState.previousState.type === 'voiceMode')
+                        || (inputState.type === 'noEdit' && inputState.recoverState.type === 'voiceMode')
                     }
                         onChange={(checked) => { return checked ? enableVoiceMode() : disableVoiceMode() }}
                         className="mr-2" width={34} height={17} uncheckedIcon={false} checkedIcon={false} />
                 </label>
-                {(isVoiceMode || (inputState.type === 'recording' && inputState.previousState.type === 'voiceMode') || (inputState.type === 'transcribing' && inputState.previousState.type === 'voiceMode'))
+                {(isVoiceMode
+                    || (inputState.type === 'recording' && inputState.previousState.type === 'voiceMode')
+                    || (inputState.type === 'transcribing' && inputState.previousState.type === 'voiceMode')
+                    || (inputState.type === 'noEdit' && inputState.recoverState.type === 'voiceMode')
+                )
                     && <label className={`flex items-center mr-2`}>
                         <span className="mr-1">Auto Send</span>
                         <Switch
@@ -547,7 +552,9 @@ function TextInput(
                             checked={isVoiceMode && inputState.autoSend
                                 // while recording and transcribing, keep what was set before
                                 || (inputState.type === 'recording' && inputState.previousState.type === 'voiceMode' && inputState.previousState.autoSend)
-                                || (inputState.type === 'transcribing' && inputState.previousState.type === 'voiceMode' && inputState.previousState.autoSend)}
+                                || (inputState.type === 'transcribing' && inputState.previousState.type === 'voiceMode' && inputState.previousState.autoSend)
+                                || (inputState.type === 'noEdit' && inputState.recoverState.type === 'voiceMode' && inputState.recoverState.autoSend)
+                            }
                             onChange={toggleAutoSend}
                             className={`mr-2`} width={34} height={17} uncheckedIcon={false} checkedIcon={false}
                         />
