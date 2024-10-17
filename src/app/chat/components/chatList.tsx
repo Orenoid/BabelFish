@@ -52,7 +52,7 @@ export function NewChat({ addNewChat: addNewChat2, className = "" }: {
     const dispatch = useAppDispatch()
     const handleClick = () => {
         const chatSelection = addNewChat2("New Chat", [
-            new SystemMessage("You're a helpful assistant.")
+            new SystemMessage("You're an English conversation practice assistant. When conversing, try to keep the length of each message to two or three sentences unless it's necessary to generate longer content. The generated text should be as colloquial as possible, simulating the effect of real human dialogue in daily life. Do not include any formatted text in the generated content, as it will sound strange when converted to speech.")
         ])
         dispatch(addNewChat(chatSelection.chatSelection))
     }
