@@ -231,11 +231,16 @@ export function MessageInput({
         }
         setCompState({ type: 'revising', revisingIndex: triggeredIndex, message: compState.message });
         const userInstruction = util.userInstruction;
-        let result: string
-        if (compState.message.isEmpty()) {
-            result = await generateMessage(userInstruction, messageList)
-        } else {
-            result = await reviseMessage(messageToText(compState.message), userInstruction, messageList);
+        let result: string;
+        try {
+            if (compState.message.isEmpty()) {
+                result = await generateMessage(userInstruction, messageList);
+            } else {
+                result = await reviseMessage(messageToText(compState.message), userInstruction, messageList);
+            }
+        } catch (error) {
+            setCompState({ type: 'normal', message: compState.message, fromRevision: false });
+            throw error; // TODO unified error handling
         }
         setCompState({
             type: 'waitingApproval',
